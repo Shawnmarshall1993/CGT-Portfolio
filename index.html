@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CGT Portfolio">
+<meta name="theme-color" content="#050b18">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>CGT Portfolio</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#050b18;--card:#0d1628;--border:#1e2d45;--text:#e8f4fd;--muted:#4a6580;--soft:#8ba8c4;
+  --emerald:#00f5a0;--sky:#38bdf8;--violet:#a78bfa;--rose:#fb7185;--amber:#fbbf24;--teal:#00d4aa;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased;padding-bottom:env(safe-area-inset-bottom)}
+
+/* HEADER */
+.header{position:sticky;top:0;z-index:100;background:rgba(5,11,24,0.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:11px}
+.logo-icon{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--emerald),var(--teal));display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 20px rgba(0,245,160,0.35);flex-shrink:0}
+.logo-title{font-size:16px;font-weight:900;background:linear-gradient(90deg,var(--emerald),var(--sky));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo-sub{font-size:9px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase}
+.header-right{display:flex;align-items:center;gap:8px}
+.sync-btn{background:rgba(0,245,160,0.1);border:1px solid rgba(0,245,160,0.25);color:var(--emerald);padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--emerald);box-shadow:0 0 6px var(--emerald)}
+
+/* BUSINESS TOGGLE */
+.biz-toggle{display:flex;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:4px;margin:14px 16px 0}
+.biz-btn{flex:1;padding:10px 12px;border:none;border-radius:10px;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;background:transparent;color:var(--muted);text-align:center;line-height:1.3;transition:all 0.2s}
+.biz-btn small{display:block;font-weight:400;opacity:0.75;font-size:9px;margin-top:2px}
+.biz-btn.ai{background:linear-gradient(135deg,rgba(0,245,160,0.2),rgba(0,212,170,0.15));color:var(--emerald);border:1px solid rgba(0,245,160,0.3)}
+.biz-btn.ar{background:linear-gradient(135deg,rgba(251,191,36,0.2),rgba(251,146,60,0.15));color:var(--amber);border:1px solid rgba(251,191,36,0.3)}
+
+/* BANNER */
+.banner{padding:9px 16px;border-bottom:1px solid;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:10px;margin-bottom:4px}
+.banner.inv{background:rgba(0,245,160,0.04);border-color:rgba(0,245,160,0.12)}
+.banner.ret{background:rgba(251,191,36,0.04);border-color:rgba(251,191,36,0.12)}
+.badge{padding:3px 9px;border-radius:20px;font-size:9px;font-weight:700}
+.bi{background:rgba(0,245,160,0.15);color:var(--emerald);border:1px solid rgba(0,245,160,0.3)}
+.br{background:rgba(251,191,36,0.15);color:var(--amber);border:1px solid rgba(251,191,36,0.3)}
+
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 16px}
+.tab{padding:11px 15px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.tab.ti{color:var(--emerald);border-bottom-color:var(--emerald);font-weight:700}
+.tab.tr{color:var(--amber);border-bottom-color:var(--amber);font-weight:700}
+
+/* CONTENT */
+.content{padding:16px}
+.panel{display:none}.panel.on{display:block}
+
+/* CARDS */
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+@media(min-width:500px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+.kpi{background:linear-gradient(135deg,var(--card),#0a1525);border:1px solid var(--border);border-radius:12px;padding:12px 13px;position:relative;overflow:hidden}
+.kpi-icon{position:absolute;top:8px;right:10px;font-size:15px;opacity:0.1}
+.kpi-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:4px}
+.kpi-v{font-size:20px;font-weight:800;line-height:1}
+.kpi-s{font-size:9px;color:var(--muted);margin-top:3px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:15px;margin-bottom:12px}
+.card-t{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:8px;font-weight:600}
+
+.g2{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:12px}
+@media(min-width:640px){.g2{grid-template-columns:1fr 1fr}}
+.ga{display:grid;grid-template-columns:1fr;gap:9px}
+@media(min-width:500px){.ga{grid-template-columns:1fr 1fr}}
+@media(min-width:800px){.ga{grid-template-columns:1fr 1fr 1fr}}
+
+/* EDITABLE FIELDS */
+.edit-field{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:12px;padding:7px 10px;width:100%;outline:none;transition:border-color 0.2s}
+.edit-field:focus{border-color:var(--emerald);background:rgba(0,245,160,0.06)}
+.edit-field.amber:focus{border-color:var(--amber);background:rgba(251,191,36,0.06)}
+.edit-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;margin-top:8px}
+
+/* PROPERTY ROWS */
+.prop-hdr{display:grid;grid-template-columns:1.8fr 0.8fr 0.9fr 0.9fr;gap:6px;padding:5px 12px;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.09em;font-weight:600}
+.prop-row{border-radius:10px;background:var(--card);border:1px solid var(--border);margin-bottom:3px;overflow:hidden}
+.prop-main{display:grid;grid-template-columns:1.8fr 0.8fr 0.9fr 0.9fr;gap:6px;padding:11px 12px;cursor:pointer;align-items:center}
+.prop-row.exp{border-color:var(--emerald)}
+.prop-expand{display:none;padding:14px;border-top:1px solid var(--border);background:rgba(0,245,160,0.03)}
+.prop-row.exp .prop-expand{display:block}
+.prop-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+@media(min-width:500px){.prop-edit-grid{grid-template-columns:1fr 1fr 1fr}}
+
+/* SAVE BUTTON */
+.save-btn{background:linear-gradient(135deg,var(--emerald),var(--teal));color:#050b18;border:none;border-radius:9px;padding:9px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;margin-top:10px}
+.save-btn.amber{background:linear-gradient(135deg,var(--amber),#fb923c);color:#050b18}
+.save-btn:active{opacity:0.8}
+
+/* ADD PROPERTY */
+.add-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(0,245,160,0.06);border:1px dashed rgba(0,245,160,0.3);border-radius:10px;padding:13px;color:var(--emerald);font-size:12px;font-weight:600;cursor:pointer;width:100%;margin-top:8px;font-family:inherit}
+
+/* STAT ROWS */
+.sr{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px}
+.sl{color:var(--soft)}.sv{font-weight:600}
+
+/* INFO CARDS */
+.ic{background:rgba(255,255,255,0.03);border-radius:9px;padding:11px 13px;border:1px solid var(--border)}
+.it{font-size:11px;font-weight:700;margin-bottom:3px}
+.ib{font-size:10px;color:var(--soft);line-height:1.6}
+
+/* DSCR BARS */
+.dscr-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.dscr-l{font-size:9px;width:100px;color:var(--soft);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dscr-t{flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden}
+.dscr-f{height:100%;border-radius:3px}
+.dscr-n{font-size:9px;width:28px;text-align:right;font-weight:700;flex-shrink:0}
+
+/* SCENARIO */
+.sc-toggle{display:flex;gap:4px;background:var(--card);border-radius:9px;padding:3px;border:1px solid var(--border)}
+.sc-btn{flex:1;padding:7px 8px;border:none;border-radius:6px;cursor:pointer;font-family:inherit;font-size:10px;font-weight:600;background:transparent;color:var(--muted);transition:all 0.15s}
+
+/* SEASON BARS */
+.season-wrap{display:flex;align-items:flex-end;height:160px;gap:3px;padding:8px 0;border-bottom:1px solid var(--border)}
+.season-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.season-fill{width:100%;background:linear-gradient(180deg,var(--teal),rgba(0,212,170,0.15));border-radius:3px 3px 0 0}
+.season-lbl{font-size:8px;color:var(--soft);margin-top:4px}
+
+/* TOAST */
+.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#0d1628;border:1px solid var(--emerald);color:var(--emerald);padding:10px 20px;border-radius:10px;font-size:12px;font-weight:600;z-index:999;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.on{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:800;margin-bottom:14px}
+.modal-close{float:right;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+
+/* LOADING */
+.loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--muted);font-size:12px;gap:10px}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--emerald);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* SETUP */
+.setup-screen{padding:20px;max-width:500px;margin:0 auto}
+.setup-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN (shown first time) -->
+<div id="setupScreen" style="display:none">
+  <div class="setup-screen">
+    <div style="text-align:center;padding:30px 0 20px">
+      <div style="font-size:40px;margin-bottom:10px">🐻</div>
+      <div style="font-size:22px;font-weight:900;background:linear-gradient(90deg,#00f5a0,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">CGT Portfolio</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Connect your Supabase database to get started</div>
+    </div>
+    <div class="setup-card">
+      <div style="font-size:13px;font-weight:700;color:var(--emerald);margin-bottom:14px">🔗 Connect Supabase</div>
+      <div class="edit-label">Supabase Project URL</div>
+      <input class="edit-field" id="setupUrl" placeholder="https://xxxxx.supabase.co" type="url">
+      <div class="edit-label">Supabase Anon Key</div>
+      <input class="edit-field" id="setupKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." type="text">
+      <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.6">Find these in your Supabase dashboard under <strong style="color:var(--soft)">Settings → API</strong></div>
+      <button class="save-btn" style="margin-top:14px" onclick="connectSupabase()">Connect & Initialize →</button>
+    </div>
+    <div style="font-size:10px;color:var(--muted);text-align:center;line-height:1.7">Your credentials are stored locally on this device.<br>Data syncs to your private Supabase database.</div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" style="display:none">
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">🐻</div>
+    <div>
+      <div class="logo-title" id="hTitle">CGT Investments LLC</div>
+      <div class="logo-sub" id="hSub">Anderson & Jane, MO</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="sync-dot" id="syncDot" title="Connected"></div>
+    <button class="sync-btn" onclick="syncData()">↻ Sync</button>
+  </div>
+</div>
+
+<div class="biz-toggle">
+  <button class="biz-btn ai" data-biz="inv">🐻 CGT Investments LLC<small>Rentals + Creek Land</small></button>
+  <button class="biz-btn" data-biz="ret">🌊 Creekside Retreats LLC<small>Airbnb · Creek Property</small></button>
+</div>
+
+<div class="banner inv" id="banner">
+  <span class="badge bi">CGT Investments LLC</span>
+  <span style="color:var(--soft)">19 rentals + creek land lease</span>
+  <span style="margin-left:auto;color:var(--emerald);font-weight:700" id="bannerTotal">$17,790/mo</span>
+</div>
+
+<!-- ═══ INVESTMENTS ═══ -->
+<div id="invSection">
+  <div class="tabs">
+    <button class="tab ti" data-tab="io">Overview</button>
+    <button class="tab" data-tab="ip">Properties</button>
+    <button class="tab" data-tab="ia">Analytics</button>
+    <button class="tab" data-tab="ib">Bank Summary</button>
+  </div>
+  <div class="content">
+
+    <!-- OVERVIEW -->
+    <div class="panel on" id="io">
+      <div class="g2" style="margin-bottom:14px">
+        <div style="background:rgba(0,245,160,0.06);border:1px solid rgba(0,245,160,0.2);border-radius:12px;padding:13px">
+          <div style="font-size:9px;color:var(--emerald);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:8px;font-weight:700">CGT Investments Income</div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap">
+            <div><div style="font-size:9px;color:var(--muted)">Rentals</div><div style="font-size:18px;font-weight:800;color:var(--emerald)" id="ov-rental">$15,290</div></div>
+            <div><div style="font-size:9px;color:var(--muted)">Land Lease</div><div style="font-size:18px;font-weight:800;color:var(--violet)">$2,500</div></div>
+            <div><div style="font-size:9px;color:var(--muted)">Total</div><div style="font-size:18px;font-weight:800;color:var(--amber)" id="ov-total">$17,790</div></div>
+          </div>
+        </div>
+        <div style="background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.2);border-radius:12px;padding:13px">
+          <div style="font-size:9px;color:var(--violet);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:6px;font-weight:700">Creekside Retreats LLC</div>
+          <div style="font-size:10px;color:var(--soft);line-height:1.7">Operates Airbnbs on leased land · Pays $2,500/mo · Separate liability shield</div>
+        </div>
+      </div>
+      <div class="kpi-grid" id="inv-kpis"></div>
+      <div class="card">
+        <div class="card-t">Monthly Income Breakdown</div>
+        <div style="display:flex;align-items:flex-end;height:180px;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)" id="inv-cf-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-t">LTV Distribution</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px" id="ltv-buckets"></div>
+      </div>
+    </div>
+
+    <!-- PROPERTIES -->
+    <div class="panel" id="ip">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:20px;font-weight:800">Properties</div>
+        <button class="add-btn" style="width:auto;padding:7px 14px" onclick="openAddProp()">+ Add Property</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="prop-filters"></div>
+      <div class="prop-hdr"><div>Property</div><div>Rent</div><div>DSCR</div><div>Equity</div></div>
+      <div id="propList"></div>
+    </div>
+
+    <!-- ANALYTICS -->
+    <div class="panel" id="ia">
+      <div style="font-size:20px;font-weight:800;margin-bottom:14px">Analytics</div>
+      <div class="card">
+        <div class="card-t">ROI by Property</div>
+        <div id="roi-chart" style="margin-top:8px"></div>
+      </div>
+      <div class="card">
+        <div class="card-t">DSCR Health</div>
+        <div id="dscr-bars" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <!-- BANK SUMMARY -->
+    <div class="panel" id="ib">
+      <div style="font-size:20px;font-weight:800;margin-bottom:4px">Bank Summary</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:14px">CGT Investments LLC — lender presentation</div>
+      <div id="bank-content"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ RETREATS ═══ -->
+<div id="retSection" style="display:none">
+  <div class="tabs">
+    <button class="tab tr" data-tab="ro">Overview</button>
+    <button class="tab" data-tab="rc">Cabins</button>
+    <button class="tab" data-tab="rb">Buildout</button>
+    <button class="tab" data-tab="rf">Financials</button>
+  </div>
+  <div class="content">
+
+    <!-- OVERVIEW -->
+    <div class="panel on" id="ro">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:10px;color:var(--muted)">Scenario:</div>
+        <div class="sc-toggle" id="scToggle">
+          <button class="sc-btn" data-sc="low">🐌 Conservative</button>
+          <button class="sc-btn" data-sc="mid" style="background:rgba(0,245,160,0.15);color:var(--emerald)">📊 Realistic</button>
+          <button class="sc-btn" data-sc="high">🚀 Optimistic</button>
+        </div>
+      </div>
+      <div style="background:rgba(0,212,170,0.07);border:1px solid rgba(0,212,170,0.25);border-radius:12px;padding:13px;margin-bottom:13px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-size:22px">💚</div>
+        <div style="flex:1;min-width:160px">
+          <div style="font-size:12px;font-weight:700;color:var(--teal)">Zero Debt — Pure Cash Returns</div>
+          <div style="font-size:10px;color:var(--soft);margin-top:2px">$80,175 cash. Only obligation is $2,500/mo land lease to your own LLC.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <div style="text-align:center;padding:7px 11px;background:rgba(255,255,255,0.05);border-radius:8px"><div style="font-size:9px;color:var(--muted);text-transform:uppercase">Cabin ROI</div><div style="font-size:18px;font-weight:800;color:var(--teal)" id="r-roi">62%</div></div>
+          <div style="text-align:center;padding:7px 11px;background:rgba(255,255,255,0.05);border-radius:8px"><div style="font-size:9px;color:var(--muted);text-transform:uppercase">Payback</div><div style="font-size:18px;font-weight:800;color:var(--amber)" id="r-pb">1.6yr</div></div>
+        </div>
+      </div>
+      <div class="kpi-grid" id="ret-kpis"></div>
+      <div class="card">
+        <div class="card-t">Phase by Phase Net Growth</div>
+        <div style="display:flex;align-items:flex-end;height:180px;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)" id="phase-chart"></div>
+      </div>
+
+      <!-- RATE EDITOR -->
+      <div class="card" style="border-color:rgba(251,191,36,0.2)">
+        <div class="card-t" style="color:var(--amber)">✏️ Edit Nightly Rates</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:4px">
+          <div>
+            <div class="edit-label">🏕️ Cabin Rate</div>
+            <div style="display:flex;align-items:center;gap:5px"><span style="color:var(--muted);font-size:12px">$</span><input class="edit-field amber" id="rate-cabin" type="number" min="50" max="1000"></div>
+          </div>
+          <div>
+            <div class="edit-label">🌲 Treehouse</div>
+            <div style="display:flex;align-items:center;gap:5px"><span style="color:var(--muted);font-size:12px">$</span><input class="edit-field amber" id="rate-tree" type="number" min="50" max="1500"></div>
+          </div>
+          <div>
+            <div class="edit-label">🔭 Dome Rate</div>
+            <div style="display:flex;align-items:center;gap:5px"><span style="color:var(--muted);font-size:12px">$</span><input class="edit-field amber" id="rate-dome" type="number" min="50" max="1200"></div>
+          </div>
+        </div>
+        <button class="save-btn amber" onclick="saveRates()">Save Rates</button>
+      </div>
+    </div>
+
+    <!-- CABINS -->
+    <div class="panel" id="rc">
+      <div style="font-size:20px;font-weight:800;margin-bottom:4px">🏕️ Creek Cabins</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:14px">Phase 1 · $80,175 cash · Zero debt</div>
+      <div id="cabin-scenarios" style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:14px"></div>
+      <div class="card">
+        <div class="card-t">Monthly Revenue Seasonality</div>
+        <div class="season-wrap" id="season-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-t">Build Cost Breakdown</div>
+        <div id="build-list" style="display:grid;gap:5px;margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- BUILDOUT -->
+    <div class="panel" id="rb">
+      <div style="font-size:20px;font-weight:800;margin-bottom:4px">🌟 Full Buildout</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:14px">All 7 units · All cash · 24 months</div>
+      <div class="kpi-grid" id="full-kpis"></div>
+      <div id="unit-bars" style="margin-bottom:14px"></div>
+    </div>
+
+    <!-- FINANCIALS -->
+    <div class="panel" id="rf">
+      <div style="font-size:20px;font-weight:800;margin-bottom:14px">Financials</div>
+      <div id="fin-content"></div>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- end mainApp -->
+
+<!-- ADD PROPERTY MODAL -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title">Add Property</div>
+    <div class="edit-label">Address</div>
+    <input class="edit-field" id="m-addr" placeholder="123 Main St.">
+    <div class="edit-label">City</div>
+    <input class="edit-field" id="m-city" placeholder="Anderson" value="Anderson">
+    <div class="edit-label">Tenant Name</div>
+    <input class="edit-field" id="m-contact" placeholder="John Smith">
+    <div class="edit-label">Tenant Phone</div>
+    <input class="edit-field" id="m-phone" placeholder="(417) 555-0000" type="tel">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><div class="edit-label">Beds/Baths</div><input class="edit-field" id="m-beds" placeholder="2/1"></div>
+      <div><div class="edit-label">Sq Ft</div><input class="edit-field" id="m-sqft" placeholder="900" type="number"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><div class="edit-label">Monthly Rent $</div><input class="edit-field" id="m-rent" placeholder="800" type="number"></div>
+      <div><div class="edit-label">Deposit $</div><input class="edit-field" id="m-deposit" placeholder="800" type="number"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><div class="edit-label">Appraised Value $</div><input class="edit-field" id="m-appraised" placeholder="85000" type="number"></div>
+      <div><div class="edit-label">Loan Balance $</div><input class="edit-field" id="m-loan" placeholder="62000" type="number"></div>
+    </div>
+    <div class="edit-label">Type</div>
+    <select class="edit-field" id="m-type">
+      <option value="stable">Active Rental</option>
+      <option value="new">New Acquisition</option>
+      <option value="family">Family</option>
+      <option value="star">Top Performer</option>
+    </select>
+    <div class="edit-label">Notes (optional)</div>
+    <input class="edit-field" id="m-note" placeholder="Any special notes...">
+    <button class="save-btn" onclick="addProperty()" style="margin-top:14px">Add Property</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════
+// CONFIG & STATE
+// ════════════════════════════════════════
+var SUPA_URL = '';
+var SUPA_KEY = '';
+var supabase = null;
+var curBiz = 'inv';
+var curSc = 'mid';
+var curFilter = 'all';
+var expandedProp = null;
+var state = {
+  properties: [],
+  rates: { low:{cabin:145,tree:250,dome:200}, mid:{cabin:175,tree:325,dome:275}, high:{cabin:225,tree:475,dome:375} }
+};
+
+var BUILD_ITEMS = [
+  {item:"Site Power",cost:5000},{item:"City Utilities",cost:4500},{item:"Septic",cost:10300},
+  {item:"Dirt Work",cost:2800},{item:"Plumbing",cost:6000},{item:"Framing Labor",cost:800},
+  {item:"Exterior Doors",cost:600},{item:"Electrical",cost:1000},{item:"HVAC",cost:6000},
+  {item:"Siding & Skirting",cost:1225},{item:"Sheetrock & Paint",cost:12000},{item:"Cabinets",cost:3000},
+  {item:"Countertops",cost:6000},{item:"Car Siding Ceilings",cost:5000},{item:"Trim",cost:1500},
+  {item:"Electrical Fixtures",cost:400},{item:"Plumbing Fixtures",cost:4800},{item:"Flooring",cost:3800},
+  {item:"Appliances",cost:3000},{item:"Deck Materials",cost:2450}
+];
+var CABIN_BUILD = 80175;
+var LAND_LEASE = 30000;
+var TC = {stable:'#00f5a0',star:'#fbbf24',new:'#38bdf8',family:'#fb7185',land:'#a78bfa'};
+
+var DEFAULT_PROPS = [
+  {id:1,addr:"503 4th St.",city:"Anderson",beds:"3/1",sqft:860,rent:900,appraised:75000,loan:62472,payment:431,taxes:12.55,ins:60.92,repair:54.87,type:"stable",contact:"Mary Leal",phone:"(417) 669-1205"},
+  {id:2,addr:"406 3rd St.",city:"Anderson",beds:"4/1",sqft:784,rent:700,appraised:95000,loan:62472,payment:431,taxes:10.73,ins:54.68,repair:43.56,type:"stable",contact:"Devon Munday",phone:"(417) 312-3023"},
+  {id:3,addr:"408 2nd St.",city:"Anderson",beds:"3/1",sqft:1008,rent:900,appraised:90000,loan:62472,payment:431,taxes:12.68,ins:65.61,repair:56.00,type:"stable",contact:"Zoey Meador",phone:"(417) 454-7730"},
+  {id:4,addr:"304 1st St.",city:"Anderson",beds:"2/1",sqft:804,rent:700,appraised:70000,loan:62472,payment:431,taxes:11.76,ins:59.37,repair:44.67,type:"stable",contact:"Martin Munoz",phone:"(417) 658-6589"},
+  {id:5,addr:"212 W Beaver St.",city:"Anderson",beds:"2/1",sqft:726,rent:700,appraised:90000,loan:62472,payment:431,taxes:14.00,ins:49.71,repair:40.33,type:"stable",contact:"Kayla Marshall",phone:"(417) 669-9322"},
+  {id:6,addr:"214 W Beaver St.",city:"Anderson",beds:"2/1",sqft:612,rent:700,appraised:65000,loan:62472,payment:431,taxes:11.76,ins:57.80,repair:34.00,type:"stable",contact:"Janet Rainwater",phone:"(417) 635-9143"},
+  {id:7,addr:"724 Park St.",city:"Anderson",beds:"2/2",sqft:892,rent:700,appraised:85000,loan:62472,payment:431,taxes:15.62,ins:64.05,repair:49.56,type:"stable",contact:"Jeremiah Morris",phone:"(479) 362-6506"},
+  {id:8,addr:"610 Roark St.",city:"Anderson",beds:"2/1",sqft:744,rent:800,appraised:75000,loan:62472,payment:431,taxes:19.25,ins:66.26,repair:41.33,type:"stable",contact:"Victoria Landon",phone:"(479) 547-0050"},
+  {id:9,addr:"308 Roark St.",city:"Anderson",beds:"2/1",sqft:912,rent:750,appraised:105000,loan:62472,payment:431,taxes:21.83,ins:128.19,repair:50.67,type:"stable",contact:"Tammy Jubala",phone:"(417) 669-4496"},
+  {id:10,addr:"502 W. Hwy 76",city:"Anderson",beds:"2/1",sqft:1089,rent:565,appraised:100000,loan:62472,payment:431,taxes:17.85,ins:100.87,repair:60.50,type:"family",contact:"Michelle Marshall",phone:"(479) 409-1068",note:"Mother's home — intentional discount"},
+  {id:11,addr:"48 Cynder Lane",city:"Anderson",beds:"3/1",sqft:1435,rent:1000,appraised:105000,loan:62472,payment:431,taxes:20,ins:147.18,repair:79.72,type:"stable",contact:"Tommy Adkins",phone:"(479) 310-6481"},
+  {id:12,addr:"56 Cynder Lane",city:"Anderson",beds:"1/1",sqft:556,rent:750,appraised:60000,loan:62472,payment:431,taxes:20,ins:55.60,repair:30.89,type:"stable",contact:"Jewell Parnell",phone:"(479) 659-9670"},
+  {id:13,addr:"13 Cynder Lane",city:"Anderson",beds:"3/1",sqft:1012,rent:1130,appraised:160000,loan:62472,payment:431,taxes:20,ins:130.40,repair:56.22,type:"star",contact:"Katie Hicks",phone:"(432) 813-1528"},
+  {id:14,addr:"310 N. Jefferson",city:"Anderson",beds:"3/1",sqft:914,rent:1000,appraised:100594,loan:62472,payment:431,taxes:20,ins:85,repair:50.78,type:"new",contact:"Pending",phone:""},
+  {id:15,addr:"410 E. Beaver St.",city:"Anderson",beds:"4/2",sqft:1166,rent:1100,appraised:128929,loan:62472,payment:431,taxes:20,ins:85,repair:64.78,type:"new",contact:"Pending",phone:""},
+  {id:16,addr:"410 High St.",city:"Anderson",beds:"2/1.5",sqft:1278,rent:1000,appraised:140659,loan:62472,payment:431,taxes:20,ins:85,repair:71,type:"new",contact:"Pending",phone:""},
+  {id:17,addr:"509 4th St.",city:"Anderson",beds:"2/1",sqft:738,rent:650,appraised:81224,loan:62472,payment:431,taxes:20,ins:85,repair:41,type:"new",contact:"Pending",phone:""},
+  {id:18,addr:"307 Wallian Ct.",city:"Anderson",beds:"3/1",sqft:1200,rent:1100,appraised:132072,loan:62472,payment:431,taxes:20,ins:85,repair:66.67,type:"new",contact:"Pending",phone:""},
+  {id:19,addr:"Creek Land",city:"Jane",beds:"Asset",sqft:0,rent:2500,appraised:400000,loan:320000,payment:1854,taxes:86.13,ins:0,repair:0,type:"land",contact:"Shawn Marshall",phone:"",note:"Leased to CGT Creekside Retreats · $2,500/mo"}
+];
+
+// ════════════════════════════════════════
+// SUPABASE SETUP
+// ════════════════════════════════════════
+function connectSupabase() {
+  var url = document.getElementById('setupUrl').value.trim();
+  var key = document.getElementById('setupKey').value.trim();
+  if(!url || !key){ showToast('Please enter both URL and key'); return; }
+  localStorage.setItem('supa_url', url);
+  localStorage.setItem('supa_key', key);
+  SUPA_URL = url; SUPA_KEY = key;
+  initSupabase();
+}
+
+function initSupabase() {
+  SUPA_URL = localStorage.getItem('supa_url') || '';
+  SUPA_KEY = localStorage.getItem('supa_key') || '';
+  if(!SUPA_URL || !SUPA_KEY) {
+    document.getElementById('setupScreen').style.display = 'block';
+    return;
+  }
+  // Load Supabase client
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+  s.onload = function() {
+    supabase = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    document.getElementById('setupScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    loadFromCloud();
+  };
+  s.onerror = function() {
+    // Fallback to local data if no internet
+    document.getElementById('setupScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    loadLocalFallback();
+  };
+  document.head.appendChild(s);
+}
+
+async function loadFromCloud() {
+  try {
+    // Load properties
+    var { data: props, error } = await supabase.from('properties').select('*').order('id');
+    if(error || !props || props.length === 0) {
+      // First time — seed with defaults
+      await seedDatabase();
+    } else {
+      state.properties = props;
+    }
+    // Load rates
+    var { data: rates } = await supabase.from('settings').select('*').eq('key', 'rates').single();
+    if(rates) state.rates = JSON.parse(rates.value);
+    
+    setSyncStatus(true);
+    renderAll();
+  } catch(e) {
+    loadLocalFallback();
+  }
+}
+
+async function seedDatabase() {
+  // Create tables via RPC if they don't exist — handled by SQL setup
+  var { error } = await supabase.from('properties').insert(DEFAULT_PROPS);
+  if(!error) {
+    state.properties = DEFAULT_PROPS;
+    await supabase.from('settings').upsert({key:'rates', value: JSON.stringify(state.rates)});
+  } else {
+    state.properties = DEFAULT_PROPS;
+  }
+}
+
+function loadLocalFallback() {
+  var saved = localStorage.getItem('cgt_props');
+  state.properties = saved ? JSON.parse(saved) : DEFAULT_PROPS;
+  var savedRates = localStorage.getItem('cgt_rates');
+  if(savedRates) state.rates = JSON.parse(savedRates);
+  setSyncStatus(false);
+  renderAll();
+}
+
+async function syncData() {
+  if(!supabase){ showToast('Not connected'); return; }
+  showToast('Syncing...');
+  try {
+    var { data } = await supabase.from('properties').select('*').order('id');
+    if(data) state.properties = data;
+    var { data: rates } = await supabase.from('settings').select('*').eq('key','rates').single();
+    if(rates) state.rates = JSON.parse(rates.value);
+    setSyncStatus(true);
+    renderAll();
+    showToast('✓ Synced!');
+  } catch(e){ showToast('Sync failed — using local data'); }
+}
+
+function setSyncStatus(ok) {
+  var dot = document.getElementById('syncDot');
+  if(dot) { dot.style.background = ok ? '#00f5a0' : '#fb7185'; dot.style.boxShadow = '0 0 6px ' + (ok?'#00f5a0':'#fb7185'); }
+}
+
+// ════════════════════════════════════════
+// CALCULATIONS
+// ════════════════════════════════════════
+function calcProp(p) {
+  var noi = p.rent - p.payment - (p.taxes||0)/1 - (p.ins||0)/1 - (p.repair||0)/1;
+  var equity = p.appraised - p.loan;
+  var ltv = p.loan / p.appraised * 100;
+  var dscr = p.payment > 0 ? (p.rent) / p.payment : 0;
+  var roi = p.loan > 0 ? (noi / p.loan * 100) : 0;
+  var cap = p.appraised > 0 ? (noi * 12 / p.appraised * 100) : 0;
+  return {noi, equity, ltv, dscr, roi, cap};
+}
+
+function calcUnit(rate, count, occ) {
+  var gross = rate * 365 * occ * count;
+  var net = gross - gross*0.15 - gross*0.03 - count*150*12 - count*120*12;
+  return {gross: Math.round(gross), net: Math.round(net)};
+}
+
+function calcCabinNet(sc) {
+  var r = state.rates[sc];
+  var u = calcUnit(r.cabin, 2, sc==='low'?0.52:sc==='mid'?0.65:0.78);
+  return {gross: u.gross, net: u.net - LAND_LEASE};
+}
+
+function calcFullNet(sc) {
+  var r = state.rates[sc]; var o = sc==='low'?0.52:sc==='mid'?0.65:0.78;
+  var c=calcUnit(r.cabin,2,o), t=calcUnit(r.tree,2,o), d=calcUnit(r.dome,3,o);
+  return {gross:c.gross+t.gross+d.gross, net:c.net+t.net+d.net-LAND_LEASE,
+    cn:c.net, tn:t.net, dn:d.net, cg:c.gross, tg:t.gross, dg:d.gross};
+}
+
+function portfolioStats() {
+  var props = state.properties;
+  var totalIncome = props.reduce(function(s,p){return s+p.rent;},0);
+  var totalPayments = props.reduce(function(s,p){return s+p.payment;},0);
+  var totalTaxes = props.reduce(function(s,p){return s+(p.taxes||0);},0);
+  var totalIns = props.reduce(function(s,p){return s+(p.ins||0);},0);
+  var totalRepair = props.reduce(function(s,p){return s+(p.repair||0);},0);
+  var netCF = totalIncome - totalPayments - totalTaxes - totalIns - totalRepair - 1645;
+  var totalEq = props.reduce(function(s,p){return s+(p.appraised-p.loan);},0);
+  var totalVal = props.reduce(function(s,p){return s+p.appraised;},0);
+  var totalLoan = props.reduce(function(s,p){return s+p.loan;},0);
+  return {totalIncome, totalPayments, netCF, totalEq, totalVal, totalLoan,
+    ltv: totalLoan/totalVal*100, occ:100};
+}
+
+// ════════════════════════════════════════
+// FORMATTING
+// ════════════════════════════════════════
+function f$(n){ return '$'+Math.round(n).toLocaleString(); }
+function fp(n){ return n.toFixed(2)+'%'; }
+
+// ════════════════════════════════════════
+// RENDER ALL
+// ════════════════════════════════════════
+function renderAll() {
+  renderInvOverview();
+  renderProps();
+  renderAnalytics();
+  renderBankContent();
+  updateRetUI();
+  renderCabinScenarios();
+  renderSeasonChart();
+  renderBuildList();
+  renderFullKpis();
+  renderUnitBars();
+  renderFinContent();
+  populateRateInputs();
+}
+
+// ════════════════════════════════════════
+// INVESTMENTS RENDERS
+// ════════════════════════════════════════
+function renderInvOverview() {
+  var st = portfolioStats();
+  
+  document.getElementById('ov-rental').textContent = f$(st.totalIncome - 2500); // without land lease
+  document.getElementById('ov-total').textContent = f$(st.totalIncome);
+  document.getElementById('bannerTotal').textContent = f$(st.totalIncome)+'/mo';
+  
+  var kpiData = [
+    {l:'Total Income/Mo', v:f$(st.totalIncome), c:'var(--amber)', i:'💰', s:'Rentals + lease'},
+    {l:'Net Cash Flow', v:f$(st.netCF), c:'var(--sky)', i:'📈', s:'After all expenses'},
+    {l:'Portfolio Value', v:'$'+Math.round(st.totalVal/1000000*10)/10+'M', c:'var(--violet)', i:'🏘️', s:'All assets'},
+    {l:'Total Equity', v:'$'+Math.round(st.totalEq/1000)+'K', c:'var(--amber)', i:'💎', s:'Across portfolio'},
+    {l:'Occupancy', v:'100%', c:'var(--emerald)', i:'✅', s:'All units'},
+    {l:'Portfolio LTV', v:fp(st.ltv), c:'var(--teal)', i:'🏦', s:'Avg leverage'}
+  ];
+  
+  var html = '';
+  kpiData.forEach(function(k){
+    html += '<div class="kpi" style="border-top:2px solid '+k.c+'"><div class="kpi-icon">'+k.i+'</div><div class="kpi-l">'+k.l+'</div><div class="kpi-v" style="color:'+k.c+'">'+k.v+'</div><div class="kpi-s">'+k.s+'</div></div>';
+  });
+  document.getElementById('inv-kpis').innerHTML = html;
+  
+  // CF chart
+  var cfData = [
+    {l:'Rental\nIncome', v:st.totalIncome-2500, c:'var(--emerald)'},
+    {l:'Land\nLease', v:2500, c:'var(--violet)'},
+    {l:'Debt\nService', v:st.totalPayments, c:'var(--rose)'},
+    {l:'Op\nExpenses', v:Math.round(st.totalTaxes+st.totalIns+st.totalRepair+1645||3266), c:'var(--amber)'},
+    {l:'Net Cash\nFlow', v:Math.max(st.netCF,0), c:'var(--sky)'}
+  ];
+  var maxV = Math.max.apply(null, cfData.map(function(d){return d.v;}));
+  var cfHtml = '';
+  cfData.forEach(function(d){
+    var h = Math.max((d.v/maxV)*100, 4);
+    cfHtml += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">';
+    cfHtml += '<div style="font-size:8px;color:'+d.c+';font-weight:700;margin-bottom:2px;text-align:center">'+f$(d.v)+'</div>';
+    cfHtml += '<div style="width:100%;height:'+h+'%;background:'+d.c+';border-radius:5px 5px 0 0;box-shadow:0 4px 10px '+d.c+'44;max-width:44px"></div>';
+    cfHtml += '<div style="font-size:8px;color:var(--soft);margin-top:5px;text-align:center;white-space:pre-line">'+d.l+'</div>';
+    cfHtml += '</div>';
+  });
+  document.getElementById('inv-cf-chart').innerHTML = cfHtml;
+  
+  // LTV buckets
+  var props = state.properties;
+  var buckets = [
+    {r:'<50%', n:props.filter(function(p){return (p.loan/p.appraised*100)<50;}).length, c:'var(--emerald)'},
+    {r:'50–70%', n:props.filter(function(p){var l=p.loan/p.appraised*100;return l>=50&&l<70;}).length, c:'var(--teal)'},
+    {r:'70–90%', n:props.filter(function(p){var l=p.loan/p.appraised*100;return l>=70&&l<90;}).length, c:'var(--amber)'},
+    {r:'90%+', n:props.filter(function(p){return (p.loan/p.appraised*100)>=90;}).length, c:'var(--rose)'}
+  ];
+  var ltvHtml = '';
+  buckets.forEach(function(b){
+    ltvHtml += '<div style="flex:1;min-width:75px;background:rgba(255,255,255,0.03);border-radius:10px;padding:11px 13px;border-top:3px solid '+b.c+'">';
+    ltvHtml += '<div style="font-size:26px;font-weight:800;color:'+b.c+'">'+b.n+'</div>';
+    ltvHtml += '<div style="font-size:10px;color:var(--muted)">'+b.r+' LTV</div></div>';
+  });
+  document.getElementById('ltv-buckets').innerHTML = ltvHtml;
+}
+
+function renderProps() {
+  var list = document.getElementById('propList');
+  if(!list) return;
+  
+  // Filters
+  var types = ['all','stable','star','new','family','land'];
+  var tLabels = {all:'All',stable:'Active',star:'Top',new:'New',family:'Family',land:'Land'};
+  var fHtml = '';
+  types.forEach(function(t){
+    var active = t===curFilter;
+    var ac = active ? 'var(--emerald)' : 'var(--muted)';
+    var ab = active ? 'rgba(0,245,160,0.15)' : 'transparent';
+    var abl = active ? 'rgba(0,245,160,0.35)' : 'var(--border)';
+    fHtml += '<button data-f="'+t+'" style="padding:4px 10px;border-radius:20px;border:1px solid '+abl+';background:'+ab+';color:'+ac+';font-size:10px;cursor:pointer;font-family:inherit">'+tLabels[t]+'</button>';
+  });
+  document.getElementById('prop-filters').innerHTML = fHtml;
+  document.querySelectorAll('[data-f]').forEach(function(b){
+    b.onclick = function(){ curFilter = this.getAttribute('data-f'); renderProps(); };
+  });
+  
+  var filtered = curFilter==='all' ? state.properties : state.properties.filter(function(p){return p.type===curFilter;});
+  var html = '';
+  filtered.forEach(function(p){
+    var calc = calcProp(p);
+    var c = TC[p.type]||'#fff';
+    var exp = expandedProp===p.id;
+    var dc = calc.dscr<1?'var(--rose)':calc.dscr<1.3?'var(--amber)':'var(--emerald)';
+    var ec = calc.equity<0?'var(--rose)':'var(--violet)';
+    
+    html += '<div class="prop-row'+(exp?' exp':'') +'" style="border-left:3px solid '+c+'">';
+    html += '<div class="prop-main" data-pid="'+p.id+'">';
+    html += '<div><div style="font-size:12px;font-weight:600">'+p.addr+'</div>';
+    html += '<div style="font-size:10px;color:var(--muted)">'+(p.contact||'—')+'</div>';
+    if(p.note) html += '<div style="font-size:9px;color:'+c+';margin-top:1px">⚑ '+p.note+'</div>';
+    html += '</div>';
+    html += '<div style="font-weight:700;color:'+c+'">'+f$(p.rent)+'</div>';
+    html += '<div style="font-weight:700;color:'+dc+'">'+calc.dscr.toFixed(2)+'</div>';
+    html += '<div style="font-weight:700;color:'+ec+'">'+f$(calc.equity)+'</div>';
+    html += '</div>';
+    
+    if(exp) {
+      html += '<div class="prop-expand">';
+      html += '<div class="prop-edit-grid">';
+      html += '<div><div class="edit-label">Tenant Name</div><input class="edit-field" data-pid="'+p.id+'" data-field="contact" value="'+(p.contact||'')+'"></div>';
+      html += '<div><div class="edit-label">Phone</div><input class="edit-field" data-pid="'+p.id+'" data-field="phone" value="'+(p.phone||'')+'" type="tel"></div>';
+      html += '<div><div class="edit-label">Monthly Rent $</div><input class="edit-field" data-pid="'+p.id+'" data-field="rent" value="'+p.rent+'" type="number"></div>';
+      html += '<div><div class="edit-label">Appraised Value $</div><input class="edit-field" data-pid="'+p.id+'" data-field="appraised" value="'+p.appraised+'" type="number"></div>';
+      html += '<div><div class="edit-label">Loan Balance $</div><input class="edit-field" data-pid="'+p.id+'" data-field="loan" value="'+p.loan+'" type="number"></div>';
+      html += '<div><div class="edit-label">Beds/Baths</div><input class="edit-field" data-pid="'+p.id+'" data-field="beds" value="'+(p.beds||'')+'"></div>';
+      html += '</div>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:10px;margin-bottom:10px">';
+      html += '<div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:8px"><div style="color:var(--muted);font-size:9px">NOI/mo</div><div style="font-weight:700;color:var(--emerald)">'+f$(calc.noi)+'</div></div>';
+      html += '<div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:8px"><div style="color:var(--muted);font-size:9px">DSCR</div><div style="font-weight:700;color:'+dc+'">'+calc.dscr.toFixed(2)+'</div></div>';
+      html += '<div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:8px"><div style="color:var(--muted);font-size:9px">LTV</div><div style="font-weight:700">'+fp(calc.ltv)+'</div></div>';
+      html += '</div>';
+      html += '<button class="save-btn" data-save="'+p.id+'">Save Changes</button>';
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  list.innerHTML = html;
+  
+  // Attach events
+  list.querySelectorAll('.prop-main').forEach(function(el){
+    el.onclick = function(){ var id=parseInt(this.getAttribute('data-pid')); expandedProp=expandedProp===id?null:id; renderProps(); };
+  });
+  list.querySelectorAll('[data-save]').forEach(function(btn){
+    btn.onclick = function(e){ e.stopPropagation(); saveProp(parseInt(this.getAttribute('data-save'))); };
+  });
+}
+
+async function saveProp(id) {
+  var p = state.properties.find(function(x){return x.id===id;});
+  if(!p) return;
+  
+  // Collect edited values
+  document.querySelectorAll('[data-pid="'+id+'"]').forEach(function(el){
+    var field = el.getAttribute('data-field');
+    if(!field) return;
+    var val = el.value;
+    if(['rent','appraised','loan','sqft','payment','taxes','ins','repair'].indexOf(field)>=0) val = parseFloat(val)||0;
+    p[field] = val;
+  });
+  
+  // Save to cloud
+  if(supabase){
+    var {error} = await supabase.from('properties').update(p).eq('id', id);
+    if(error){ showToast('Save failed'); return; }
+  }
+  localStorage.setItem('cgt_props', JSON.stringify(state.properties));
+  showToast('✓ Saved!');
+  renderAll();
+}
+
+function renderAnalytics() {
+  var sorted = state.properties.filter(function(p){return p.type!=='land';}).sort(function(a,b){
+    return calcProp(b).roi - calcProp(a).roi;
+  });
+  var maxROI = 20;
+  var roiHtml = '<div style="display:flex;align-items:flex-end;height:180px;gap:3px;border-bottom:1px solid var(--border)">';
+  sorted.forEach(function(p){
+    var roi = calcProp(p).roi;
+    var c = roi>=14?'var(--amber)':roi>=11?'var(--sky)':roi>0?'var(--teal)':'var(--rose)';
+    var h = Math.max((roi/maxROI)*100, 3);
+    roiHtml += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">';
+    roiHtml += '<div style="font-size:7px;color:'+c+';font-weight:700;margin-bottom:1px">'+roi.toFixed(1)+'%</div>';
+    roiHtml += '<div style="width:100%;height:'+h+'%;background:'+c+';border-radius:3px 3px 0 0;box-shadow:0 0 5px '+c+'77"></div>';
+    roiHtml += '</div>';
+  });
+  roiHtml += '</div>';
+  document.getElementById('roi-chart').innerHTML = roiHtml;
+  
+  var allSorted = state.properties.slice().sort(function(a,b){return calcProp(a).dscr-calcProp(b).dscr;});
+  var dscrHtml = '';
+  allSorted.forEach(function(p){
+    var dscr = calcProp(p).dscr;
+    var col = dscr<1?'var(--rose)':dscr<1.3?'var(--amber)':'var(--emerald)';
+    var pct = Math.min((dscr/2.5)*100, 100);
+    dscrHtml += '<div class="dscr-row"><div class="dscr-l">'+p.addr.split(' ').slice(0,2).join(' ')+'</div><div class="dscr-t"><div class="dscr-f" style="width:'+pct+'%;background:'+col+'"></div></div><div class="dscr-n" style="color:'+col+'">'+dscr.toFixed(2)+'</div></div>';
+  });
+  document.getElementById('dscr-bars').innerHTML = dscrHtml;
+}
+
+function renderBankContent() {
+  var st = portfolioStats();
+  var html = '';
+  html += '<div class="card">';
+  html += '<div class="card-t" style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">📁 Portfolio Metrics</div>';
+  var metrics = [
+    ['Total Properties','20 (19 residential + land)','var(--emerald)'],
+    ['Occupancy','19/19 (100%)','var(--emerald)'],
+    ['Gross Monthly Income',f$(st.totalIncome),'var(--sky)'],
+    ['Gross Annual Income',f$(st.totalIncome*12),'var(--sky)'],
+    ['Appraised Value',f$(st.totalVal),'var(--violet)'],
+    ['Loan Balance',f$(st.totalLoan),'var(--rose)'],
+    ['Total Equity',f$(st.totalEq),'var(--amber)'],
+    ['Portfolio LTV',fp(st.ltv),'var(--teal)'],
+    ['Net Cash Flow/Mo',f$(st.netCF),'var(--emerald)'],
+    ['Loan Structure','Single blanket, 19 props','var(--soft)']
+  ];
+  metrics.forEach(function(m){
+    html += '<div style="border-left:3px solid '+m[2]+';padding-left:10px;margin-bottom:10px"><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em">'+m[0]+'</div><div style="font-size:12px;font-weight:600;color:'+m[2]+'">'+m[1]+'</div></div>';
+  });
+  html += '</div>';
+  
+  html += '<div style="background:rgba(251,113,133,0.05);border:1px solid rgba(251,113,133,0.2);border-radius:13px;padding:15px;margin-bottom:12px">';
+  html += '<div style="font-size:10px;color:var(--rose);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:10px;font-weight:600">⚠️ Documents Banks Need</div>';
+  var docs = ['Current Rent Roll (90 days)','Lease Expiration Schedule','Inter-Company Lease Agreement','Personal Financial Statement','2–3 Years Tax Returns (Both LLCs)','Operating Agreements (Both LLCs)','Insurance Dec Pages (All 19)','Flood Zone / FEMA (Creek Land)','Airbnb Pro Forma (Retreats)','Phase 2 Development Plan'];
+  docs.forEach(function(d){
+    html += '<div style="font-size:11px;color:var(--soft);padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04)">📌 '+d+'</div>';
+  });
+  html += '</div>';
+  
+  html += '<div style="background:rgba(0,245,160,0.04);border:1px solid rgba(0,245,160,0.15);border-radius:13px;padding:15px">';
+  html += '<div style="font-size:10px;color:var(--emerald);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:10px;font-weight:600">✅ Strengths to Lead With</div>';
+  var strengths = ['100% Occupancy — all 19 units','66.9% Portfolio LTV — below 75% threshold','1.47x Avg DSCR — exceeds 1.25x minimum','Creek Land Now Cash Flows at 1.35x DSCR','Clean LLC Structure — liability separation','$713K Total Equity across 20 assets','Zero Debt on STR Assets (Retreats LLC)','Geographic Focus — all Anderson/Jane, MO'];
+  strengths.forEach(function(s){
+    html += '<div style="font-size:11px;color:var(--soft);padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04)">✓ '+s+'</div>';
+  });
+  html += '</div>';
+  
+  document.getElementById('bank-content').innerHTML = html;
+}
+
+// ════════════════════════════════════════
+// RETREATS RENDERS
+// ════════════════════════════════════════
+function updateRetUI() {
+  var cn = calcCabinNet(curSc);
+  var fn = calcFullNet(curSc);
+  var roi = ((cn.net/CABIN_BUILD)*100).toFixed(0);
+  var pb = (CABIN_BUILD/cn.net).toFixed(1);
+  
+  function s(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
+  s('r-roi', roi+'%');
+  s('r-pb', pb+'yr');
+  
+  var kpis = [
+    {l:'Cabin Net/Yr', v:f$(cn.net), c:'var(--emerald)', i:'🏕️'},
+    {l:'Full Build Net/Yr', v:f$(fn.net), c:'var(--amber)', i:'🌟'},
+    {l:'Cabin Net/Mo', v:f$(Math.round(cn.net/12)), c:'var(--teal)', i:'📅'},
+    {l:'Land Lease/Mo', v:'$2,500', c:'var(--rose)', i:'📋'},
+    {l:'Cash Invested', v:'$80,175', c:'var(--sky)', i:'💵'},
+    {l:'Full ROI', v:((fn.net/275175)*100).toFixed(0)+'%', c:'var(--amber)', i:'🎯'}
+  ];
+  var kHtml = '';
+  kpis.forEach(function(k){
+    kHtml += '<div class="kpi" style="border-top:2px solid '+k.c+'"><div class="kpi-icon">'+k.i+'</div><div class="kpi-l">'+k.l+'</div><div class="kpi-v" style="color:'+k.c+'">'+k.v+'</div></div>';
+  });
+  document.getElementById('ret-kpis').innerHTML = kHtml;
+  
+  renderPhaseChart();
+}
+
+function renderPhaseChart() {
+  var c = document.getElementById('phase-chart');
+  if(!c) return;
+  var cn = calcCabinNet(curSc).net;
+  var r = state.rates[curSc]; var o = curSc==='low'?0.52:curSc==='mid'?0.65:0.78;
+  var t = calcUnit(r.tree,2,o); var d = calcUnit(r.dome,3,o);
+  var bars = [
+    {l:'Phase 1\nCabins', v:cn, c:'var(--emerald)'},
+    {l:'Phase 2\n+Trees', v:cn+t.net, c:'var(--amber)'},
+    {l:'Full\n+Domes', v:calcFullNet(curSc).net, c:'var(--violet)'}
+  ];
+  var maxV = Math.max.apply(null, bars.map(function(b){return b.v;}));
+  var html = '';
+  bars.forEach(function(b){
+    var h = Math.max((b.v/maxV)*100,4);
+    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">';
+    html += '<div style="font-size:9px;color:'+b.c+';font-weight:700;margin-bottom:3px;text-align:center">'+f$(b.v)+'</div>';
+    html += '<div style="width:100%;height:'+h+'%;background:'+b.c+';border-radius:5px 5px 0 0;box-shadow:0 4px 10px '+b.c+'55;max-width:60px"></div>';
+    html += '<div style="font-size:9px;color:var(--soft);margin-top:5px;text-align:center;white-space:pre-line">'+b.l+'</div>';
+    html += '</div>';
+  });
+  c.innerHTML = html;
+}
+
+function renderCabinScenarios() {
+  var c = document.getElementById('cabin-scenarios');
+  if(!c) return;
+  var html = '';
+  ['low','mid','high'].forEach(function(sc){
+    var cn = calcCabinNet(sc);
+    var col = sc==='low'?'var(--rose)':sc==='mid'?'var(--emerald)':'var(--amber)';
+    var active = sc===curSc;
+    var r = state.rates[sc]; var o = sc==='low'?0.52:sc==='mid'?0.65:0.78;
+    var u = calcUnit(r.cabin,2,o);
+    html += '<div data-sc-card="'+sc+'" style="background:'+(active?'rgba(0,245,160,0.06)':'var(--card)')+';border:1px solid '+(active?col:'var(--border)')+';border-radius:13px;padding:15px;cursor:pointer">';
+    html += '<div style="font-size:11px;color:'+col+';font-weight:700;text-transform:uppercase;margin-bottom:6px">'+scenarios[sc]+'</div>';
+    html += '<div style="font-size:24px;font-weight:800;color:'+col+';margin-bottom:2px">'+f$(cn.net)+'</div>';
+    html += '<div style="font-size:9px;color:var(--muted);margin-bottom:10px">net/year after lease</div>';
+    [['Rate','$'+r.cabin+'/night'],['Occupancy',(o*100).toFixed(0)+'%'],['Gross',f$(u.gross)],['Land Lease','($30,000)'],['Net After Lease',f$(cn.net)],['Monthly Net',f$(Math.round(cn.net/12))],['ROI',((cn.net/CABIN_BUILD)*100).toFixed(0)+'%'],['Payback',(CABIN_BUILD/cn.net).toFixed(1)+' yrs']].forEach(function(row){
+      html += '<div class="sr"><span class="sl">'+row[0]+'</span><span class="sv" style="color:'+(row[0]==='Land Lease'?'var(--rose)':col)+'">'+row[1]+'</span></div>';
+    });
+    html += '</div>';
+  });
+  c.innerHTML = html;
+  c.querySelectorAll('[data-sc-card]').forEach(function(el){
+    el.onclick = function(){ setScenario(this.getAttribute('data-sc-card')); };
+  });
+}
+var scenarios = {low:'🐌 Conservative', mid:'📊 Realistic', high:'🚀 Optimistic'};
+
+function renderSeasonChart() {
+  var c = document.getElementById('season-chart');
+  if(!c) return;
+  var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var occs=[45,50,65,78,82,85,88,80,78,82,55,52];
+  var rate = state.rates[curSc].cabin;
+  var html = '';
+  occs.forEach(function(o,i){
+    var rev = Math.round(rate*(o/100)*30.4*2);
+    var h = (o/90)*100;
+    html += '<div class="season-col"><div style="font-size:7px;color:var(--teal);font-weight:700;margin-bottom:2px">$'+Math.round(rev/1000)+'k</div><div class="season-fill" style="height:'+h+'%"></div><div class="season-lbl">'+months[i]+'</div></div>';
+  });
+  c.innerHTML = html;
+}
+
+function renderBuildList() {
+  var c = document.getElementById('build-list');
+  if(!c) return;
+  var html = '';
+  BUILD_ITEMS.forEach(function(it){
+    var col = it.cost>=5000?'var(--rose)':it.cost>=3000?'var(--amber)':'var(--text)';
+    html += '<div style="display:flex;justify-content:space-between;padding:6px 10px;background:rgba(255,255,255,0.03);border-radius:7px"><span style="font-size:11px;color:var(--soft)">'+it.item+'</span><span style="font-size:11px;font-weight:700;color:'+col+'">'+f$(it.cost)+'</span></div>';
+  });
+  html += '<div style="display:flex;justify-content:space-between;padding:9px 12px;margin-top:4px;background:rgba(56,189,248,0.1);border-radius:8px;border:1px solid rgba(56,189,248,0.25)"><span style="font-size:12px;font-weight:700;color:var(--sky)">TOTAL — BOTH CABINS</span><span style="font-size:12px;font-weight:700;color:var(--sky)">$80,175</span></div>';
+  c.innerHTML = html;
+}
+
+function renderFullKpis() {
+  var c = document.getElementById('full-kpis');
+  if(!c) return;
+  var fn = calcFullNet(curSc);
+  var roi = ((fn.net/275175)*100).toFixed(0);
+  var kpis = [
+    {l:'Gross/Yr', v:f$(fn.gross), c:'var(--emerald)', i:'💵'},
+    {l:'Net/Yr', v:f$(fn.net), c:'var(--amber)', i:'📈'},
+    {l:'Net/Mo', v:f$(Math.round(fn.net/12)), c:'var(--sky)', i:'📅'},
+    {l:'Land Lease', v:'$30K/yr', c:'var(--rose)', i:'📋'},
+    {l:'Cash Invested', v:'$275K', c:'var(--violet)', i:'💰'},
+    {l:'ROI', v:roi+'%', c:'var(--amber)', i:'🎯'}
+  ];
+  var html = '';
+  kpis.forEach(function(k){
+    html += '<div class="kpi" style="border-top:2px solid '+k.c+'"><div class="kpi-icon">'+k.i+'</div><div class="kpi-l">'+k.l+'</div><div class="kpi-v" style="color:'+k.c+'">'+k.v+'</div></div>';
+  });
+  c.innerHTML = html;
+}
+
+function renderUnitBars() {
+  var c = document.getElementById('unit-bars');
+  if(!c) return;
+  var fn = calcFullNet(curSc);
+  var r = state.rates[curSc]; var o = curSc==='low'?0.52:curSc==='mid'?0.65:0.78;
+  var units = [
+    {name:'Creek Cabins',emoji:'🏕️',count:2,rate:r.cabin,build:80175,color:'var(--emerald)'},
+    {name:'Treehouses',emoji:'🌲',count:2,rate:r.tree,build:120000,color:'var(--amber)'},
+    {name:'Domes',emoji:'🔭',count:3,rate:r.dome,build:75000,color:'var(--violet)'}
+  ];
+  var html = '';
+  units.forEach(function(u){
+    var ru = calcUnit(u.rate,u.count,o);
+    var pct = (ru.gross/fn.gross*100).toFixed(0);
+    var roi = ((ru.net/u.build)*100).toFixed(0);
+    html += '<div style="background:rgba(255,255,255,0.03);border-radius:11px;padding:13px 14px;margin-bottom:9px;border-left:4px solid '+u.color+'">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;flex-wrap:wrap;gap:6px">';
+    html += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:18px">'+u.emoji+'</span><div><div style="font-size:12px;font-weight:700;color:'+u.color+'">'+u.name+' ('+u.count+')</div><div style="font-size:9px;color:var(--muted)">'+f$(u.build)+' cash · ROI: '+roi+'%</div></div></div>';
+    html += '<div style="text-align:right"><div style="font-size:16px;font-weight:800;color:'+u.color+'">'+f$(ru.gross)+'<span style="font-size:9px;color:var(--muted)">/yr</span></div><div style="font-size:9px;color:var(--muted)">net: '+f$(ru.net)+'</div></div>';
+    html += '</div>';
+    html += '<div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+u.color+'"></div></div>';
+    html += '<div style="font-size:9px;color:var(--muted);margin-top:3px">'+pct+'% of total gross</div>';
+    html += '</div>';
+  });
+  c.innerHTML = html;
+}
+
+function renderFinContent() {
+  var c = document.getElementById('fin-content');
+  if(!c) return;
+  var html = '<div class="card"><div class="card-t" style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">Annual P&L — All Scenarios</div>';
+  html += '<div style="display:grid;grid-template-columns:1fr;gap:10px">';
+  ['low','mid','high'].forEach(function(sc){
+    var cn = calcCabinNet(sc); var fn = calcFullNet(sc);
+    var col = sc==='low'?'var(--rose)':sc==='mid'?'var(--emerald)':'var(--amber)';
+    var roi = ((fn.net/275175)*100).toFixed(0);
+    html += '<div style="padding:12px 14px;background:'+col.replace('var(','rgba(').replace(')',',0.07)')+';border-radius:11px;border:1px solid '+col.replace('var(','rgba(').replace(')',',0.2)')+'"><div style="font-size:10px;font-weight:700;color:'+col+';margin-bottom:8px">'+scenarios[sc]+'</div>';
+    [['Cabins Gross',f$(cn.gross)],['Cabins Net (after lease)',f$(cn.net)],['Full Buildout Gross',f$(fn.gross)],['Full Net (after lease)',f$(fn.net)],['Full Monthly Net',f$(Math.round(fn.net/12))],['Cash-on-Cash ROI',roi+'%'],['Full Payback',(275175/fn.net).toFixed(1)+' yrs']].forEach(function(row){
+      html += '<div class="sr"><span class="sl">'+row[0]+'</span><span class="sv" style="color:'+col+'">'+row[1]+'</span></div>';
+    });
+    html += '</div>';
+  });
+  html += '</div></div>';
+  
+  html += '<div style="background:rgba(0,212,170,0.05);border:1px solid rgba(0,212,170,0.2);border-radius:13px;padding:15px">';
+  html += '<div style="font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:10px;font-weight:600">🏦 Combined Portfolio Picture</div>';
+  var st = portfolioStats(); var cn = calcCabinNet('mid');
+  var fn = calcFullNet('mid');
+  var combNow = st.netCF + Math.round(cn.net/12);
+  var combFull = st.netCF + Math.round(fn.net/12);
+  [
+    ['Land Day-1 Cash Flow','$2,500/mo in → $1,854/mo loan = +$646/mo on land'],
+    ['Combined Net Today',f$(combNow)+'/mo (Investments + Cabins)'],
+    ['Combined Net Full Buildout',f$(combFull)+'/mo across both LLCs'],
+    ['Phase 1 Funds Phase 2','~$50K/yr cabin profit covers $120K treehouse build'],
+    ['Written Lease Critical','Document the $2,500/mo inter-company lease arm\'s-length']
+  ].forEach(function(row){
+    html += '<div class="ic" style="margin-bottom:8px"><div class="it" style="color:var(--teal)">✓ '+row[0]+'</div><div class="ib">'+row[1]+'</div></div>';
+  });
+  html += '</div>';
+  
+  c.innerHTML = html;
+}
+
+// ════════════════════════════════════════
+// RATES EDITOR
+// ════════════════════════════════════════
+function populateRateInputs() {
+  var r = state.rates[curSc];
+  function s(id,v){var e=document.getElementById(id);if(e)e.value=v;}
+  s('rate-cabin', r.cabin); s('rate-tree', r.tree); s('rate-dome', r.dome);
+}
+
+async function saveRates() {
+  var sc = curSc;
+  var cabin = parseFloat(document.getElementById('rate-cabin').value)||175;
+  var tree = parseFloat(document.getElementById('rate-tree').value)||325;
+  var dome = parseFloat(document.getElementById('rate-dome').value)||275;
+  state.rates[sc] = {cabin, tree, dome};
+  
+  if(supabase){
+    await supabase.from('settings').upsert({key:'rates', value:JSON.stringify(state.rates)});
+  }
+  localStorage.setItem('cgt_rates', JSON.stringify(state.rates));
+  showToast('✓ Rates saved!');
+  updateRetUI(); renderCabinScenarios(); renderFullKpis(); renderUnitBars(); renderSeasonChart();
+}
+
+// ════════════════════════════════════════
+// ADD PROPERTY
+// ════════════════════════════════════════
+function openAddProp() {
+  document.getElementById('addModal').classList.add('on');
+}
+function closeModal() {
+  document.getElementById('addModal').classList.remove('on');
+}
+
+async function addProperty() {
+  var get = function(id){ return document.getElementById(id).value.trim(); };
+  var newProp = {
+    id: Date.now(),
+    addr: get('m-addr'), city: get('m-city'),
+    contact: get('m-contact'), phone: get('m-phone'),
+    beds: get('m-beds'), sqft: parseFloat(get('m-sqft'))||0,
+    rent: parseFloat(get('m-rent'))||0, deposit: parseFloat(get('m-deposit'))||0,
+    appraised: parseFloat(get('m-appraised'))||0,
+    loan: parseFloat(get('m-loan'))||0,
+    payment: Math.round(parseFloat(get('m-loan'))*0.0069)||0, // estimate payment
+    taxes: 20, ins: 85, repair: 50,
+    type: get('m-type'), note: get('m-note')
+  };
+  if(!newProp.addr){ showToast('Enter an address'); return; }
+  
+  state.properties.push(newProp);
+  if(supabase){
+    await supabase.from('properties').insert(newProp);
+  }
+  localStorage.setItem('cgt_props', JSON.stringify(state.properties));
+  closeModal(); showToast('✓ Property added!'); renderAll();
+}
+
+// ════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════
+function switchBiz(biz) {
+  curBiz = biz;
+  document.getElementById('invSection').style.display = biz==='inv'?'block':'none';
+  document.getElementById('retSection').style.display = biz==='ret'?'block':'none';
+  document.querySelectorAll('.biz-btn').forEach(function(b){
+    b.className = 'biz-btn';
+    if(b.getAttribute('data-biz')===biz) b.classList.add(biz==='inv'?'ai':'ar');
+  });
+  var banner = document.getElementById('banner');
+  if(biz==='inv'){
+    document.getElementById('hTitle').textContent='CGT Investments LLC';
+    document.getElementById('hSub').textContent='Anderson & Jane, MO';
+    banner.className='banner inv';
+    banner.innerHTML='<span class="badge bi">CGT Investments LLC</span><span style="color:var(--soft)">19 rentals + creek land lease</span><span style="margin-left:auto;color:var(--emerald);font-weight:700" id="bannerTotal">'+f$(portfolioStats().totalIncome)+'/mo</span>';
+  } else {
+    document.getElementById('hTitle').textContent='Creekside Retreats LLC';
+    document.getElementById('hSub').textContent='Jane, MO · Airbnb';
+    banner.className='banner ret';
+    banner.innerHTML='<span class="badge br">Creekside Retreats LLC</span><span style="color:var(--soft)">Airbnbs · pays $2,500/mo lease</span><span style="margin-left:auto;color:var(--amber);font-weight:700">Zero Debt</span>';
+  }
+}
+
+function showTab(biz, tabId) {
+  var section = document.getElementById(biz==='inv'?'invSection':'retSection');
+  section.querySelectorAll('.panel').forEach(function(p){p.className='panel';});
+  document.getElementById(tabId).className='panel on';
+  section.querySelectorAll('.tab').forEach(function(t){
+    t.className = 'tab';
+    if(t.getAttribute('data-tab')===tabId) t.classList.add(biz==='inv'?'ti':'tr');
+  });
+}
+
+function setScenario(sc) {
+  curSc = sc;
+  document.querySelectorAll('.sc-btn').forEach(function(b){
+    b.style.background='transparent'; b.style.color='var(--muted)';
+    if(b.getAttribute('data-sc')===sc){
+      var col = sc==='low'?'rgba(251,113,133,0.15)':sc==='mid'?'rgba(0,245,160,0.15)':'rgba(251,191,36,0.15)';
+      var tcol = sc==='low'?'var(--rose)':sc==='mid'?'var(--emerald)':'var(--amber)';
+      b.style.background=col; b.style.color=tcol;
+    }
+  });
+  populateRateInputs();
+  updateRetUI(); renderCabinScenarios(); renderFullKpis(); renderUnitBars(); renderSeasonChart();
+}
+
+// ════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════
+var toastTimer;
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2500);
+}
+
+// ════════════════════════════════════════
+// EVENTS
+// ════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', function(){
+  // Biz toggle
+  document.querySelectorAll('.biz-btn').forEach(function(b){
+    b.onclick = function(){ switchBiz(this.getAttribute('data-biz')); };
+  });
+  // Tabs — inv
+  document.querySelectorAll('#invSection .tab').forEach(function(t){
+    t.onclick = function(){ showTab('inv', this.getAttribute('data-tab')); };
+  });
+  // Tabs — ret
+  document.querySelectorAll('#retSection .tab').forEach(function(t){
+    t.onclick = function(){ showTab('ret', this.getAttribute('data-tab')); };
+  });
+  // Scenario
+  document.querySelectorAll('.sc-btn').forEach(function(b){
+    b.onclick = function(){ setScenario(this.getAttribute('data-sc')); };
+  });
+  // Close modal on overlay click
+  document.getElementById('addModal').onclick = function(e){
+    if(e.target===this) closeModal();
+  };
+  // Service worker
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/sw.js').catch(function(){});
+  }
+  // Init
+  initSupabase();
+});
+</script>
+</body>
+</html>

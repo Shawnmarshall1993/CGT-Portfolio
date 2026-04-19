@@ -1,0 +1,15 @@
+{
+  "name": "cgt-portfolio",
+  "version": "1.0.0",
+  "description": "CGT Investments & Creekside Retreats Portfolio Dashboard",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
