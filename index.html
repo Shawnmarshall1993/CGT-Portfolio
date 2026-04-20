@@ -199,6 +199,7 @@ html{background:#050b18}body{background:#050b18;color:#eef6ff;font-family:-apple
   <div class="header-right">
     <div class="sync-dot" id="syncDot" title="Connected"></div>
     <button class="sync-btn" onclick="syncData()" id="syncBtn" style="display:none">↻ Sync</button>
+    <button onclick="resetToDefaults()" id="resetBtn" style="display:none;background:rgba(251,113,133,0.12);border:1px solid rgba(251,113,133,0.3);color:#fb7185;padding:6px 10px;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">⟳ Reset</button>
     <button onclick="toggleEditMode()" id="lockBtn" style="background:rgba(251,113,133,0.12);border:1px solid rgba(251,113,133,0.3);color:#fb7185;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">🔒 View Only</button>
   </div>
 </div>
@@ -671,6 +672,27 @@ async function syncData() {
     renderAll();
     showToast('✓ Synced!');
   } catch(e){ showToast('Sync failed — using local data'); }
+}
+
+async function resetToDefaults() {
+  if(!confirm('This will replace ALL current property data with the correct defaults (rent, deposits, water/trash, pest, etc). Cloud data will also be overwritten. Continue?')) return;
+  showToast('Resetting...');
+  state.properties = JSON.parse(JSON.stringify(DEFAULT_PROPS));
+  localStorage.setItem('cgt_props', JSON.stringify(state.properties));
+  if(supabase){
+    try {
+      // Upsert each property back to cloud
+      for(var i=0; i<state.properties.length; i++){
+        await supabase.from('properties').upsert(state.properties[i]);
+      }
+      showToast('✓ Reset complete — data restored everywhere!');
+    } catch(e){
+      showToast('✓ Local reset done. Cloud update failed: '+e.message);
+    }
+  } else {
+    showToast('✓ Local reset complete!');
+  }
+  renderAll();
 }
 
 function setSyncStatus(ok) {
@@ -2347,7 +2369,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
 function setViewMode(){
   isEditMode = false;
-  var editEls = document.querySelectorAll('.save-btn, .add-btn, #syncBtn');
+  var editEls = document.querySelectorAll('.save-btn, .add-btn, #syncBtn, #resetBtn');
   for(var i=0;i<editEls.length;i++) editEls[i].style.display='none';
   var rateCards = document.querySelectorAll('.edit-field');
   for(var i=0;i<rateCards.length;i++) rateCards[i].disabled=true;
@@ -2365,6 +2387,8 @@ function setEditMode(){
   for(var i=0;i<editEls.length;i++) editEls[i].style.display='';
   var syncBtn = document.getElementById('syncBtn');
   if(syncBtn) syncBtn.style.display='';
+  var resetBtn = document.getElementById('resetBtn');
+  if(resetBtn) resetBtn.style.display='';
   var fields = document.querySelectorAll('.edit-field');
   for(var i=0;i<fields.length;i++) fields[i].disabled=false;
   var lb = document.getElementById('lockBtn');
