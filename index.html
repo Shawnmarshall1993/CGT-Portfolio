@@ -201,7 +201,7 @@ html{background:#050b18}body{background:#050b18;color:#eef6ff;font-family:-apple
   </div>
   <div class="header-right">
     <div class="sync-dot" id="syncDot" title="Connected"></div>
-    <span style="font-size:9px;color:#4a6580;letter-spacing:0.06em" title="App version">v3.1</span>
+    <span style="font-size:9px;color:#4a6580;letter-spacing:0.06em" title="App version">v3.2</span>
     <button class="sync-btn" onclick="syncData()" id="syncBtn">↻ Sync</button>
     <button onclick="resetToDefaults()" id="resetBtn" style="background:rgba(251,113,133,0.12);border:1px solid rgba(251,113,133,0.3);color:#fb7185;padding:6px 10px;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">⟳ Reset</button>
   </div>
@@ -636,6 +636,49 @@ function cloudShape(p){
   return row;
 }
 
+// ════════════════════════════════════════
+// ADAPTIVE SCHEMA RECOVERY
+// If Supabase rejects a write because a column doesn't exist, parse the error,
+// drop that column from SCHEMA_FIELDS, and retry. Self-heals schema mismatches
+// without requiring SQL migrations.
+// ════════════════════════════════════════
+function dropBadColumn(errMsg){
+  if(!errMsg) return null;
+  // PostgREST patterns:
+  //   "Could not find the 'columnName' column of 'properties' in the schema cache"
+  //   "column \"columnName\" of relation \"properties\" does not exist"
+  //   "column 'columnName' does not exist"
+  var patterns = [
+    /Could not find the ['"]([^'"]+)['"] column/i,
+    /column ['"]([^'"]+)['"] of relation/i,
+    /column ['"]?([a-zA-Z_][a-zA-Z0-9_]*)['"]? does not exist/i
+  ];
+  for(var i=0;i<patterns.length;i++){
+    var m = errMsg.match(patterns[i]);
+    if(m){
+      var col = m[1];
+      var idx = SCHEMA_FIELDS.indexOf(col);
+      if(idx>=0){
+        SCHEMA_FIELDS.splice(idx, 1);
+        console.warn('[adaptive] Removed column from cloud whitelist:', col, '· Remaining:', SCHEMA_FIELDS.length);
+        return col;
+      }
+    }
+  }
+  return null;
+}
+
+// Format a Supabase error for display/logging
+function fmtErr(err){
+  if(!err) return 'unknown';
+  var parts = [];
+  if(err.code)    parts.push('['+err.code+']');
+  if(err.message) parts.push(err.message);
+  if(err.details) parts.push('('+err.details+')');
+  if(err.hint)    parts.push('hint: '+err.hint);
+  return parts.join(' ') || 'unknown';
+}
+
 async function seedDatabase() {
   // Create tables via RPC if they don't exist — handled by SQL setup
   var shaped = DEFAULT_PROPS.map(cloudShape);
@@ -688,16 +731,25 @@ async function resetToDefaults() {
     var failures = 0;
     var lastError = null;
     for(var i=0; i<state.properties.length; i++){
-      try {
-        var res = await supabase.from('properties').upsert(cloudShape(state.properties[i]));
-        if(res && res.error){ failures++; lastError = res.error; }
-      } catch(e){ failures++; lastError = e; }
+      var attempts = 3;
+      var rowOk = false;
+      while(attempts-- > 0){
+        try {
+          var res = await supabase.from('properties').upsert(cloudShape(state.properties[i]));
+          if(!res || !res.error){ rowOk = true; break; }
+          lastError = res.error;
+          console.error('[reset] row '+i+' error:', fmtErr(res.error));
+          var dropped = dropBadColumn(res.error.message);
+          if(dropped) continue;
+          break;
+        } catch(e){ lastError = e; break; }
+      }
+      if(!rowOk) failures++;
     }
     if(failures === 0){
       showToast('✓ Reset complete — data restored everywhere!');
     } else {
-      var msg = (lastError && lastError.message) ? lastError.message : 'unknown error';
-      showToast('⚠ Local OK · '+failures+' cloud rows failed: '+msg);
+      showToast('⚠ Local OK · '+failures+' cloud rows failed: '+fmtErr(lastError));
     }
   } else {
     showToast('✓ Local reset complete!');
@@ -759,14 +811,37 @@ function healProperties() {
 async function persistHealedData() {
   try { localStorage.setItem('cgt_props', JSON.stringify(state.properties)); } catch(e){}
   if(!supabase) return;
+
+  var firstError = null;
+  var droppedCols = [];
   var failures = 0;
+
   for(var i=0;i<state.properties.length;i++){
-    try {
-      var res = await supabase.from('properties').upsert(cloudShape(state.properties[i]));
-      if(res && res.error) failures++;
-    } catch(e){ failures++; }
+    // Try up to 3 times per row, dropping a column each time
+    var attempts = 3;
+    var rowOk = false;
+    while(attempts-- > 0){
+      try {
+        var res = await supabase.from('properties').upsert(cloudShape(state.properties[i]));
+        if(!res || !res.error){ rowOk = true; break; }
+        if(!firstError) firstError = res.error;
+        var dropped = dropBadColumn(res.error.message);
+        if(dropped){ droppedCols.push(dropped); continue; }
+        break; // unrecoverable error
+      } catch(e){
+        if(!firstError) firstError = {message:e.message};
+        break;
+      }
+    }
+    if(!rowOk) failures++;
   }
-  if(failures>0) console.warn('persistHealedData: '+failures+' rows failed to sync');
+
+  if(droppedCols.length){
+    console.warn('[persistHealedData] adaptive: dropped columns', droppedCols.join(', '));
+  }
+  if(failures > 0){
+    console.error('[persistHealedData] '+failures+' rows failed to sync. First error:', fmtErr(firstError));
+  }
 }
 
 // ════════════════════════════════════════
@@ -994,11 +1069,22 @@ async function commitInlineEdit(input){
   try { localStorage.setItem('cgt_props', JSON.stringify(state.properties)); } catch(e){}
 
   if(supabase){
-    var res = await supabase.from('properties').update(cloudShape(p)).eq('id', pid);
-    if(res && res.error){
-      showToast('⚠ Saved locally · cloud failed: '+(res.error.message||'unknown'));
-    } else {
+    var attempts = 3;
+    var saved = false;
+    var lastError = null;
+    while(attempts-- > 0){
+      var res = await supabase.from('properties').update(cloudShape(p)).eq('id', pid);
+      if(!res || !res.error){ saved = true; break; }
+      lastError = res.error;
+      console.error('[commitInlineEdit] error:', fmtErr(res.error));
+      var dropped = dropBadColumn(res.error.message);
+      if(dropped){ continue; } // retry with column removed
+      break; // unrecoverable
+    }
+    if(saved){
       showToast('✓ Saved');
+    } else {
+      showToast('⚠ Saved locally · cloud failed: '+fmtErr(lastError));
     }
   } else {
     showToast('✓ Saved locally');
@@ -1275,10 +1361,20 @@ async function saveProp(id) {
   // Save to cloud — whitelist only schema columns to avoid "column does not exist" failures
   // (Fields like leaseStart/leaseEnd/vacancy may not exist in the Supabase table)
   if(supabase){
-    var res = await supabase.from('properties').update(cloudShape(p)).eq('id', id);
-    if(res && res.error){
-      var msg = res.error.message || 'unknown';
-      showToast('⚠ Saved locally · cloud failed: '+msg);
+    var attempts = 3;
+    var saved = false;
+    var lastError = null;
+    while(attempts-- > 0){
+      var res = await supabase.from('properties').update(cloudShape(p)).eq('id', id);
+      if(!res || !res.error){ saved = true; break; }
+      lastError = res.error;
+      console.error('[saveProp] error:', fmtErr(res.error));
+      var dropped = dropBadColumn(res.error.message);
+      if(dropped){ continue; }
+      break;
+    }
+    if(!saved){
+      showToast('⚠ Saved locally · cloud failed: '+fmtErr(lastError));
       expandedMaster = null;
       renderAll();
       return;
