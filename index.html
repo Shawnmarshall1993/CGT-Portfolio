@@ -201,7 +201,7 @@ html{background:#050b18}body{background:#050b18;color:#eef6ff;font-family:-apple
   </div>
   <div class="header-right">
     <div class="sync-dot" id="syncDot" title="Connected"></div>
-    <span style="font-size:9px;color:#4a6580;letter-spacing:0.06em" title="App version">v3.2</span>
+    <span style="font-size:9px;color:#4a6580;letter-spacing:0.06em" title="App version">v4.0</span>
     <button class="sync-btn" onclick="syncData()" id="syncBtn">↻ Sync</button>
     <button onclick="resetToDefaults()" id="resetBtn" style="background:rgba(251,113,133,0.12);border:1px solid rgba(251,113,133,0.3);color:#fb7185;padding:6px 10px;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">⟳ Reset</button>
   </div>
@@ -628,7 +628,8 @@ async function loadFromCloud() {
 // ════════════════════════════════════════
 var SCHEMA_FIELDS = ['id','addr','city','contact','phone','beds','deposit',
                      'sqft','projected','rent','watertrash','pest','loan','payment',
-                     'taxes','ins','repair','appraised','type','note'];
+                     'taxes','ins','repair','appraised','type','note',
+                     'leaseStart','leaseEnd'];
 
 function cloudShape(p){
   var row = {};
@@ -1063,11 +1064,13 @@ async function commitInlineEdit(input){
   if(numeric.indexOf(field) >= 0){ val = parseFloat(val) || 0; }
 
   if(p[field] === val){ renderAll(); return; } // no change
+
+  // Capture the old value so we can revert if cloud rejects
+  var oldVal = p[field];
   p[field] = val;
 
-  // Save locally first — never lose an edit to a cloud failure
-  try { localStorage.setItem('cgt_props', JSON.stringify(state.properties)); } catch(e){}
-
+  // Cloud-first save — Supabase is the source of truth.
+  // Only mirror to localStorage AFTER cloud accepts.
   if(supabase){
     var attempts = 3;
     var saved = false;
@@ -1078,18 +1081,32 @@ async function commitInlineEdit(input){
       lastError = res.error;
       console.error('[commitInlineEdit] error:', fmtErr(res.error));
       var dropped = dropBadColumn(res.error.message);
-      if(dropped){ continue; } // retry with column removed
-      break; // unrecoverable
+      if(dropped){ continue; }
+      break;
     }
     if(saved){
-      showToast('✓ Saved');
+      // Cloud succeeded — refresh local mirror to match
+      try { localStorage.setItem('cgt_props', JSON.stringify(state.properties)); } catch(e){}
+      showToast('✓ Saved to cloud');
     } else {
-      showToast('⚠ Saved locally · cloud failed: '+fmtErr(lastError));
+      // Cloud failed — revert in-memory change so we don't lie to the user
+      p[field] = oldVal;
+      showToast('⚠ Save failed — '+fmtErr(lastError));
     }
   } else {
-    showToast('✓ Saved locally');
+    // No cloud connection at all — refuse the save (per cloud-first model)
+    p[field] = oldVal;
+    showToast('⚠ Not connected to cloud — try Sync');
   }
   renderAll();
+}
+
+// Format ISO date (YYYY-MM-DD) → MM/DD/YYYY for display, or '—' if empty
+function formatDate(iso){
+  if(!iso) return '—';
+  var parts = String(iso).split('-');
+  if(parts.length !== 3) return iso;
+  return parts[1]+'/'+parts[2]+'/'+parts[0];
 }
 
 function renderMasterSheet() {
@@ -1099,37 +1116,45 @@ function renderMasterSheet() {
 
   // Column definitions with keys for toggling
   var colDefs = [
-    {key:'addr',   label:'Address'},
-    {key:'beds',   label:'Beds'},
-    {key:'sqft',   label:'SqFt'},
-    {key:'deposit',label:'Deposit'},
-    {key:'proj',   label:'Proj Rent'},
-    {key:'rent',   label:'Curr Rent'},
-    {key:'wt',     label:'W/Trash'},
-    {key:'pest',   label:'Pest'},
-    {key:'total',  label:'Total/Mo'},
-    {key:'pmt',    label:'Payment'},
-    {key:'noi',    label:'NOI'},
-    {key:'appr',   label:'Appraised'},
-    {key:'eq',     label:'Equity'},
-    {key:'dscr',   label:'DSCR'},
-    {key:'ltv',    label:'LTV'},
-    {key:'roi',    label:'ROI'},
-    {key:'cap',    label:'Cap Rate'}
+    {key:'addr',       label:'Address'},
+    {key:'tenant',     label:'Tenant'},
+    {key:'phone',      label:'Phone'},
+    {key:'leaseStart', label:'Lease Start'},
+    {key:'leaseEnd',   label:'Lease End'},
+    {key:'beds',       label:'Beds'},
+    {key:'sqft',       label:'SqFt'},
+    {key:'deposit',    label:'Deposit'},
+    {key:'proj',       label:'Proj Rent'},
+    {key:'rent',       label:'Curr Rent'},
+    {key:'wt',         label:'W/Trash'},
+    {key:'pest',       label:'Pest'},
+    {key:'total',      label:'Total/Mo'},
+    {key:'pmt',        label:'Payment'},
+    {key:'noi',        label:'NOI'},
+    {key:'appr',       label:'Appraised'},
+    {key:'eq',         label:'Equity'},
+    {key:'dscr',       label:'DSCR'},
+    {key:'ltv',        label:'LTV'},
+    {key:'roi',        label:'ROI'},
+    {key:'cap',        label:'Cap Rate'}
   ];
 
   // Map column key → editable property field, with input type
   // Cells listed here become click-to-edit; everything else stays read-only.
   var EDIT_MAP = {
-    rent:    {field:'rent',       type:'number'},
-    proj:    {field:'projected',  type:'number'},
-    wt:      {field:'watertrash', type:'number'},
-    pest:    {field:'pest',       type:'number'},
-    deposit: {field:'deposit',    type:'number'},
-    appr:    {field:'appraised',  type:'number'},
-    pmt:     {field:'payment',    type:'number'},
-    sqft:    {field:'sqft',       type:'number'},
-    beds:    {field:'beds',       type:'text'}
+    rent:       {field:'rent',       type:'number'},
+    proj:       {field:'projected',  type:'number'},
+    wt:         {field:'watertrash', type:'number'},
+    pest:       {field:'pest',       type:'number'},
+    deposit:    {field:'deposit',    type:'number'},
+    appr:       {field:'appraised',  type:'number'},
+    pmt:        {field:'payment',    type:'number'},
+    sqft:       {field:'sqft',       type:'number'},
+    beds:       {field:'beds',       type:'text'},
+    tenant:     {field:'contact',    type:'text'},
+    phone:      {field:'phone',      type:'tel'},
+    leaseStart: {field:'leaseStart', type:'date'},
+    leaseEnd:   {field:'leaseEnd',   type:'date'}
   };
 
   // Render column visibility toggle bar above table
@@ -1176,23 +1201,27 @@ function renderMasterSheet() {
 
     // Map column keys to cell content
     var cells = {
-      addr:   {v:p.addr,                                                                  c:tc,       b:true,  align:'left'},
-      beds:   {v:maybeEditable('beds', p.beds||'—', p.beds||''),                          c:'#94b4cc',           align:'left'},
-      sqft:   {v:maybeEditable('sqft', (p.sqft||0).toLocaleString(), p.sqft||0),          c:'#8ba8c4'},
-      deposit:{v:maybeEditable('deposit', f$(p.deposit||0), p.deposit||0),                c:'#94b4cc'},
-      proj:   {v:maybeEditable('proj', f$(p.projected||p.rent), p.projected||p.rent),     c:'#a78bfa'},
-      rent:   {v:maybeEditable('rent', f$(p.rent), p.rent),                               c:'#eef6ff', b:true},
-      wt:     {v:maybeEditable('wt', f$(p.watertrash||0), p.watertrash||0),               c:'#94b4cc'},
-      pest:   {v:maybeEditable('pest', f$(p.pest||0), p.pest||0),                         c:'#94b4cc'},
-      total:  {v:f$(calc.totalTenant),                                                    c:'#38bdf8', b:true},
-      pmt:    {v:maybeEditable('pmt', f$(p.payment), p.payment),                          c:'#fb7185'},
-      noi:    {v:f$(calc.noi),                                                            c:calc.noi>0?'#00f5a0':'#fb7185', b:true},
-      appr:   {v:maybeEditable('appr', f$(p.appraised), p.appraised),                     c:'#eef6ff'},
-      eq:     {v:f$(calc.equity),                                                         c:'#a78bfa', b:true},
-      dscr:   {v:calc.dscr.toFixed(2),                                                    c:dscrC, b:true},
-      ltv:    {v:calc.ltv.toFixed(0)+'%',                                                 c:ltvC},
-      roi:    {v:calc.roi.toFixed(1)+'%',                                                 c:roiC},
-      cap:    {v:calc.cap.toFixed(2)+'%',                                                 c:'#94b4cc'}
+      addr:       {v:p.addr,                                                                  c:tc,       b:true,  align:'left'},
+      tenant:     {v:maybeEditable('tenant', p.contact||'—', p.contact||''),                  c:'#94b4cc', align:'left'},
+      phone:      {v:maybeEditable('phone', p.phone||'—', p.phone||''),                       c:'#94b4cc', align:'left'},
+      leaseStart: {v:maybeEditable('leaseStart', formatDate(p.leaseStart), p.leaseStart||''), c:'#94b4cc', align:'left'},
+      leaseEnd:   {v:maybeEditable('leaseEnd',   formatDate(p.leaseEnd),   p.leaseEnd||''),   c:'#94b4cc', align:'left'},
+      beds:       {v:maybeEditable('beds', p.beds||'—', p.beds||''),                          c:'#94b4cc', align:'left'},
+      sqft:       {v:maybeEditable('sqft', (p.sqft||0).toLocaleString(), p.sqft||0),          c:'#8ba8c4'},
+      deposit:    {v:maybeEditable('deposit', f$(p.deposit||0), p.deposit||0),                c:'#94b4cc'},
+      proj:       {v:maybeEditable('proj', f$(p.projected||p.rent), p.projected||p.rent),     c:'#a78bfa'},
+      rent:       {v:maybeEditable('rent', f$(p.rent), p.rent),                               c:'#eef6ff', b:true},
+      wt:         {v:maybeEditable('wt', f$(p.watertrash||0), p.watertrash||0),               c:'#94b4cc'},
+      pest:       {v:maybeEditable('pest', f$(p.pest||0), p.pest||0),                         c:'#94b4cc'},
+      total:      {v:f$(calc.totalTenant),                                                    c:'#38bdf8', b:true},
+      pmt:        {v:maybeEditable('pmt', f$(p.payment), p.payment),                          c:'#fb7185'},
+      noi:        {v:f$(calc.noi),                                                            c:calc.noi>0?'#00f5a0':'#fb7185', b:true},
+      appr:       {v:maybeEditable('appr', f$(p.appraised), p.appraised),                     c:'#eef6ff'},
+      eq:         {v:f$(calc.equity),                                                         c:'#a78bfa', b:true},
+      dscr:       {v:calc.dscr.toFixed(2),                                                    c:dscrC, b:true},
+      ltv:        {v:calc.ltv.toFixed(0)+'%',                                                 c:ltvC},
+      roi:        {v:calc.roi.toFixed(1)+'%',                                                 c:roiC},
+      cap:        {v:calc.cap.toFixed(2)+'%',                                                 c:'#94b4cc'}
     };
 
     html2 += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05)">';
@@ -1209,23 +1238,27 @@ function renderMasterSheet() {
   // Totals row
   var st = portfolioStats();
   var totals = {
-    addr:   {v:'TOTALS',                                                             c:'#00f5a0'},
-    beds:   {v:'',                                                                    c:'#94b4cc'},
-    sqft:   {v:props.reduce(function(s,p){return s+(p.sqft||0);},0).toLocaleString(), c:'#8ba8c4'},
-    deposit:{v:f$(props.reduce(function(s,p){return s+(p.deposit||0);},0)),           c:'#94b4cc'},
-    proj:   {v:f$(props.reduce(function(s,p){return s+(p.projected||p.rent);},0)),    c:'#a78bfa'},
-    rent:   {v:f$(st.totalIncome),                                                    c:'#eef6ff'},
-    wt:     {v:f$(props.reduce(function(s,p){return s+(p.watertrash||0);},0)),        c:'#94b4cc'},
-    pest:   {v:f$(props.reduce(function(s,p){return s+(p.pest||0);},0)),              c:'#94b4cc'},
-    total:  {v:f$(props.reduce(function(s,p){return s+calcProp(p).totalTenant;},0)),  c:'#38bdf8'},
-    pmt:    {v:f$(st.totalPayments),                                                  c:'#fb7185'},
-    noi:    {v:f$(props.reduce(function(s,p){return s+calcProp(p).noi;},0)),          c:'#00f5a0'},
-    appr:   {v:f$(st.totalVal),                                                       c:'#eef6ff'},
-    eq:     {v:f$(st.totalEq),                                                        c:'#a78bfa'},
-    dscr:   {v:st.avgDscr.toFixed(2),                                                 c:'#00f5a0'},
-    ltv:    {v:st.avgLtv.toFixed(0)+'%',                                              c:'#00d4aa'},
-    roi:    {v:st.avgRoi.toFixed(2)+'%',                                              c:'#fbbf24'},
-    cap:    {v:st.avgCap.toFixed(2)+'%',                                              c:'#38bdf8'}
+    addr:       {v:'TOTALS',                                                             c:'#00f5a0'},
+    tenant:     {v:'',                                                                    c:'#94b4cc'},
+    phone:      {v:'',                                                                    c:'#94b4cc'},
+    leaseStart: {v:'',                                                                    c:'#94b4cc'},
+    leaseEnd:   {v:'',                                                                    c:'#94b4cc'},
+    beds:       {v:'',                                                                    c:'#94b4cc'},
+    sqft:       {v:props.reduce(function(s,p){return s+(p.sqft||0);},0).toLocaleString(), c:'#8ba8c4'},
+    deposit:    {v:f$(props.reduce(function(s,p){return s+(p.deposit||0);},0)),           c:'#94b4cc'},
+    proj:       {v:f$(props.reduce(function(s,p){return s+(p.projected||p.rent);},0)),    c:'#a78bfa'},
+    rent:       {v:f$(st.totalIncome),                                                    c:'#eef6ff'},
+    wt:         {v:f$(props.reduce(function(s,p){return s+(p.watertrash||0);},0)),        c:'#94b4cc'},
+    pest:       {v:f$(props.reduce(function(s,p){return s+(p.pest||0);},0)),              c:'#94b4cc'},
+    total:      {v:f$(props.reduce(function(s,p){return s+calcProp(p).totalTenant;},0)),  c:'#38bdf8'},
+    pmt:        {v:f$(st.totalPayments),                                                  c:'#fb7185'},
+    noi:        {v:f$(props.reduce(function(s,p){return s+calcProp(p).noi;},0)),          c:'#00f5a0'},
+    appr:       {v:f$(st.totalVal),                                                       c:'#eef6ff'},
+    eq:         {v:f$(st.totalEq),                                                        c:'#a78bfa'},
+    dscr:       {v:st.avgDscr.toFixed(2),                                                 c:'#00f5a0'},
+    ltv:        {v:st.avgLtv.toFixed(0)+'%',                                              c:'#00d4aa'},
+    roi:        {v:st.avgRoi.toFixed(2)+'%',                                              c:'#fbbf24'},
+    cap:        {v:st.avgCap.toFixed(2)+'%',                                              c:'#38bdf8'}
   };
 
   html2 += '<tr style="background:rgba(0,245,160,0.08);border-top:2px solid rgba(0,245,160,0.3);font-weight:700">';
@@ -2551,13 +2584,35 @@ async function addProperty() {
     type: get('m-type'), note: get('m-note')
   };
   if(!newProp.addr){ showToast('Enter an address'); return; }
-  
-  state.properties.push(newProp);
+
+  // Cloud-first: only commit locally if cloud accepts
   if(supabase){
-    await supabase.from('properties').insert(cloudShape(newProp));
+    var attempts = 3;
+    var saved = false;
+    var lastError = null;
+    while(attempts-- > 0){
+      var res = await supabase.from('properties').insert(cloudShape(newProp));
+      if(!res || !res.error){ saved = true; break; }
+      lastError = res.error;
+      console.error('[addProperty] error:', fmtErr(res.error));
+      var dropped = dropBadColumn(res.error.message);
+      if(dropped) continue;
+      break;
+    }
+    if(!saved){
+      showToast('⚠ Add failed: '+fmtErr(lastError));
+      return;
+    }
+  } else {
+    showToast('⚠ Not connected to cloud — try Sync');
+    return;
   }
-  localStorage.setItem('cgt_props', JSON.stringify(state.properties));
-  closeModal(); showToast('✓ Property added!'); renderAll();
+
+  state.properties.push(newProp);
+  try { localStorage.setItem('cgt_props', JSON.stringify(state.properties)); } catch(e){}
+  closeModal();
+  showToast('✓ Property added!');
+  renderAll();
 }
 
 // ════════════════════════════════════════
@@ -2661,6 +2716,17 @@ document.addEventListener('DOMContentLoaded', function(){
       regs.forEach(function(r){ r.unregister(); });
     }).catch(function(){});
   }
+
+  // Auto-refresh from cloud when tab regains focus, so users see each other's
+  // updates within seconds of switching back to the app.
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden && supabase){
+      loadFromCloud();
+    }
+  });
+  window.addEventListener('focus', function(){
+    if(supabase) loadFromCloud();
+  });
 
   // Load saved ledger entries from localStorage (overrides defaults if present)
   loadLedgers();
