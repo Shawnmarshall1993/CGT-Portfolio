@@ -201,7 +201,7 @@ html{background:#050b18}body{background:#050b18;color:#eef6ff;font-family:-apple
   </div>
   <div class="header-right">
     <div class="sync-dot" id="syncDot" title="Connected"></div>
-    <span style="font-size:9px;color:#4a6580;letter-spacing:0.06em" title="App version">v4.0</span>
+    <span style="font-size:9px;color:#4a6580;letter-spacing:0.06em" title="App version">v4.3</span>
     <button class="sync-btn" onclick="syncData()" id="syncBtn">↻ Sync</button>
     <button onclick="resetToDefaults()" id="resetBtn" style="background:rgba(251,113,133,0.12);border:1px solid rgba(251,113,133,0.3);color:#fb7185;padding:6px 10px;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">⟳ Reset</button>
   </div>
@@ -606,6 +606,24 @@ async function loadFromCloud() {
     // Load rates
     var { data: rates } = await supabase.from('settings').select('*').eq('key', 'rates').single();
     if(rates) state.rates = JSON.parse(rates.value);
+
+    // Load build cost items (cabin construction Quote/Actual)
+    try {
+      var bRes = await supabase.from('settings').select('value').eq('key', 'build_items');
+      if(bRes && bRes.data && bRes.data.length > 0){
+        var bArr = JSON.parse(bRes.data[0].value);
+        if(Array.isArray(bArr)) {
+          BUILD_ITEMS = bArr;
+          try { localStorage.setItem('cgt_build_items', JSON.stringify(BUILD_ITEMS)); } catch(e){}
+        }
+      } else if(BUILD_ITEMS && BUILD_ITEMS.length > 0){
+        // Cloud empty — push our local items up
+        await supabase.from('settings').upsert({key:'build_items', value:JSON.stringify(BUILD_ITEMS)});
+      }
+    } catch(e){ console.error('[buildItems] cloud load:', e); }
+
+    // Pull ledger entries from cloud (or migrate local entries up if cloud is empty)
+    await loadLedgersFromCloud();
 
     // AUTO-HEAL: restore reference fields if cloud data is corrupted/stale
     if(healProperties()){
@@ -2159,12 +2177,22 @@ var LEDGER_MAP = {
 };
 
 function saveLedgers(){
+  // Save locally as cache mirror
   for(var k in LEDGER_MAP){
     try { localStorage.setItem(LEDGER_MAP[k].key, JSON.stringify(LEDGER_MAP[k].arr())); } catch(e){}
   }
+  // Push to cloud (fire-and-forget; failures logged but non-blocking)
+  if(!supabase) return;
+  Object.keys(LEDGER_MAP).forEach(function(k){
+    var payload = {key:'ledger_'+k, value:JSON.stringify(LEDGER_MAP[k].arr())};
+    supabase.from('settings').upsert(payload).then(function(res){
+      if(res && res.error) console.error('[ledger save] '+k+':', fmtErr(res.error));
+    });
+  });
 }
 
 function loadLedgers(){
+  // Load from local cache (synchronous, used at app startup before cloud is ready)
   for(var k in LEDGER_MAP){
     try {
       var saved = localStorage.getItem(LEDGER_MAP[k].key);
@@ -2174,6 +2202,74 @@ function loadLedgers(){
       }
     } catch(e){}
   }
+}
+
+// Async cloud-pull for ledgers — runs after Supabase is initialized.
+// On first run for either user, also migrates any local-only entries up to cloud.
+async function loadLedgersFromCloud(){
+  if(!supabase) return false;
+  // Has this device already done the v4.3 first-time merge with the cloud?
+  // Before that flag is set, we MERGE local + cloud entries (preserving both).
+  // After that flag is set, cloud is authoritative.
+  var firstMerge = !localStorage.getItem('cgt_v43_merged');
+  var changed = false;
+  var keys = Object.keys(LEDGER_MAP);
+  for(var i=0;i<keys.length;i++){
+    var k = keys[i];
+    var cloudKey = 'ledger_'+k;
+    try {
+      var res = await supabase.from('settings').select('value').eq('key', cloudKey);
+      var hasCloudRow = res && res.data && res.data.length > 0;
+      var cloudArr = null;
+      if(hasCloudRow){
+        try { cloudArr = JSON.parse(res.data[0].value); } catch(e){ cloudArr = null; }
+        if(!Array.isArray(cloudArr)) cloudArr = null;
+      }
+      var localArr = LEDGER_MAP[k].arr() || [];
+
+      if(firstMerge){
+        // FIRST-TIME MERGE: combine local + cloud, dedup by content fingerprint
+        var merged = mergeLedgerArrays(cloudArr || [], localArr);
+        LEDGER_MAP[k].set(merged);
+        try { localStorage.setItem(LEDGER_MAP[k].key, JSON.stringify(merged)); } catch(e){}
+        // Push merged back to cloud only if it changed from what was there
+        var cloudJson = cloudArr ? JSON.stringify(cloudArr) : '';
+        var mergedJson = JSON.stringify(merged);
+        if(cloudJson !== mergedJson){
+          await supabase.from('settings').upsert({key:cloudKey, value:mergedJson});
+        }
+        changed = true;
+      } else {
+        // STEADY STATE: cloud wins
+        if(cloudArr){
+          LEDGER_MAP[k].set(cloudArr);
+          try { localStorage.setItem(LEDGER_MAP[k].key, JSON.stringify(cloudArr)); } catch(e){}
+          changed = true;
+        }
+      }
+    } catch(e){
+      console.error('[ledger load] '+k+':', e);
+    }
+  }
+  if(firstMerge){
+    try { localStorage.setItem('cgt_v43_merged', '1'); } catch(e){}
+    console.log('[ledger] first-time merge complete');
+  }
+  return changed;
+}
+
+// Merge two ledger entry arrays without losing anything; dedup by content fingerprint.
+function mergeLedgerArrays(a, b){
+  var seen = {};
+  var out = [];
+  function add(entry){
+    if(!entry) return;
+    var fp = JSON.stringify(entry);
+    if(!seen[fp]){ seen[fp] = true; out.push(entry); }
+  }
+  (a||[]).forEach(add);
+  (b||[]).forEach(add);
+  return out;
 }
 
 function delLedger(which, idx){
@@ -2446,7 +2542,15 @@ function saveBuildItems(){
     var idx = parseInt(input.getAttribute('data-build-idx'));
     BUILD_ITEMS[idx].actual = parseFloat(input.value) || 0;
   });
+  // Local cache mirror
   try { localStorage.setItem('cgt_build_items', JSON.stringify(BUILD_ITEMS)); } catch(e){}
+  // Push to cloud (fire-and-forget)
+  if(supabase){
+    supabase.from('settings').upsert({key:'build_items', value:JSON.stringify(BUILD_ITEMS)})
+      .then(function(res){
+        if(res && res.error) console.error('[buildItems] cloud save:', fmtErr(res.error));
+      });
+  }
   showToast('✓ Actual costs saved!');
   renderBuildList();
 }
@@ -2727,6 +2831,14 @@ document.addEventListener('DOMContentLoaded', function(){
   window.addEventListener('focus', function(){
     if(supabase) loadFromCloud();
   });
+
+  // Background poll: every 60s while the tab is visible, pull fresh data
+  // from cloud so partner edits show up without needing to tab away.
+  setInterval(function(){
+    if(!document.hidden && supabase){
+      loadFromCloud();
+    }
+  }, 60000);
 
   // Load saved ledger entries from localStorage (overrides defaults if present)
   loadLedgers();
