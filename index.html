@@ -201,7 +201,7 @@ html{background:#050b18}body{background:#050b18;color:#eef6ff;font-family:-apple
   </div>
   <div class="header-right">
     <div class="sync-dot" id="syncDot" title="Connected"></div>
-    <span style="font-size:9px;color:#4a6580;letter-spacing:0.06em" title="App version">v4.3</span>
+    <span style="font-size:9px;color:#4a6580;letter-spacing:0.06em" title="App version">v4.7</span>
     <button class="sync-btn" onclick="syncData()" id="syncBtn">↻ Sync</button>
     <button onclick="resetToDefaults()" id="resetBtn" style="background:rgba(251,113,133,0.12);border:1px solid rgba(251,113,133,0.3);color:#fb7185;padding:6px 10px;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">⟳ Reset</button>
   </div>
@@ -251,6 +251,7 @@ html{background:#050b18}body{background:#050b18;color:#eef6ff;font-family:-apple
         </div>
       </div>
       <div class="kpi-grid" id="inv-kpis"></div>
+      <div id="ov-loans-summary" style="margin-bottom:14px"></div>
       <div class="card" style="padding:0;overflow:hidden">
         <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
           <div class="card-t" style="margin:0">Master Property Sheet</div>
@@ -520,8 +521,118 @@ var curFilter = 'all';
 var expandedProp = null;
 var state = {
   properties: [],
-  rates: { low:{cabin:145,tree:250,dome:200}, mid:{cabin:175,tree:325,dome:275}, high:{cabin:225,tree:475,dome:375} }
+  rates: { low:{cabin:145,tree:250,dome:200}, mid:{cabin:175,tree:325,dome:275}, high:{cabin:225,tree:475,dome:375} },
+  loans: [
+    {id:'blanket',  name:'Blanket Rental Loan', lender:'Commercial Lender',
+     position:'1st', color:'#00f5a0',
+     anchorBalance:1124500, firstPaymentDate:'2026-06-13',
+     rate:6.40, term:20, payment:7522.59,
+     props:'18 residential properties',
+     notes:'Single blanket loan across all rentals'},
+    {id:'creek',    name:'Creek Land Loan', lender:'Commercial Lender',
+     position:'1st', color:'#00f5a0',
+     anchorBalance:320000, firstPaymentDate:'2026-06-13',
+     rate:6.73, term:20, payment:1854.76,
+     props:'Creek land — Jane, MO',
+     notes:'Leased to Creekside Retreats at $2,500/mo'},
+    {id:'loc',      name:'Line of Credit (LOC)', lender:'Bank LOC',
+     position:'2nd', color:'#fb7185',
+     anchorBalance:0, creditLimit:125000, firstPaymentDate:'',
+     rate:0, term:0, payment:0,
+     props:'Cross-collateralized',
+     notes:'2nd position · Used for acquisitions & improvements'}
+  ]
 };
+
+// ════════════════════════════════════════
+// LOAN AMORTIZATION
+// Counts how many payments have actually been made by today, given the
+// first payment date. On the first payment date, this returns 1.
+// ════════════════════════════════════════
+function paymentsMadeOn(firstPaymentISO){
+  if(!firstPaymentISO) return 0;
+  var first = new Date(firstPaymentISO + 'T00:00:00');
+  var today = new Date();
+  if(today < first) return 0;
+  var months = (today.getFullYear() - first.getFullYear()) * 12
+             + (today.getMonth()    - first.getMonth());
+  if(today.getDate() < first.getDate()) months--;
+  return Math.max(0, months) + 1; // first payment counts as 1
+}
+
+function calcLoanCurrentBalance(loan){
+  if(!loan || !loan.payment || loan.payment <= 0) return loan.anchorBalance; // LOC stays static
+  var n = paymentsMadeOn(loan.firstPaymentDate);
+  if(n <= 0) return loan.anchorBalance;
+  var balance = loan.anchorBalance;
+  var monthlyRate = (loan.rate / 100) / 12;
+  for(var i = 0; i < n; i++){
+    var interest = balance * monthlyRate;
+    var principal = loan.payment - interest;
+    if(principal <= 0) break;
+    balance -= principal;
+    if(balance <= 0){ balance = 0; break; }
+  }
+  return balance;
+}
+
+function nextPaymentDate(firstPaymentISO){
+  if(!firstPaymentISO) return null;
+  var first = new Date(firstPaymentISO + 'T00:00:00');
+  var today = new Date();
+  if(today < first) return first;
+  var n = paymentsMadeOn(firstPaymentISO);
+  // After N payments made, the next is at month (start + N)
+  var next = new Date(first.getFullYear(), first.getMonth() + n, first.getDate());
+  return next;
+}
+
+function formatLoanDate(iso){
+  if(!iso) return '—';
+  var d = new Date(iso + 'T00:00:00');
+  if(isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+}
+
+// Auto-allocate the blanket loan across residential properties by VALUE
+// (each property's share = its appraised value ÷ total residential value),
+// and apply the creek loan to the land property. This matches how lenders
+// actually compute release prices on blanket loans, and gives a uniform
+// LTV % across all residentials (which is the truth — there's one blanket
+// LTV, not 18 different ones). Called after any loan edit and after every
+// cloud load so per-property numbers stay in sync.
+function applyLoanAllocation(){
+  if(!state.loans || !state.properties) return;
+  var blanket = state.loans.find(function(l){return l.id==='blanket';});
+  var creek   = state.loans.find(function(l){return l.id==='creek';});
+  var residential = state.properties.filter(function(p){return p.type !== 'land';});
+
+  if(blanket && residential.length){
+    var liveBlanket = calcLoanCurrentBalance(blanket);
+    var totalResValue = residential.reduce(function(s,p){return s+(p.appraised||0);},0);
+    if(totalResValue > 0){
+      // Value-weighted: each property's share of the blanket = share of total appraised value
+      residential.forEach(function(p){
+        var share = (p.appraised || 0) / totalResValue;
+        p.loan = liveBlanket * share;
+        p.payment = blanket.payment * share;
+      });
+    } else {
+      // Fallback if values aren't loaded yet — equal split (rare edge case)
+      residential.forEach(function(p){
+        p.loan = liveBlanket / residential.length;
+        p.payment = blanket.payment / residential.length;
+      });
+    }
+  }
+  if(creek){
+    var land = state.properties.find(function(p){return p.type === 'land';});
+    if(land){
+      land.loan = calcLoanCurrentBalance(creek);
+      land.payment = creek.payment;
+    }
+  }
+}
 
 var BUILD_ITEMS = [
   {item:"Site Power",quote:5000,actual:0},{item:"City Utilities",quote:4500,actual:0},
@@ -621,6 +732,37 @@ async function loadFromCloud() {
         await supabase.from('settings').upsert({key:'build_items', value:JSON.stringify(BUILD_ITEMS)});
       }
     } catch(e){ console.error('[buildItems] cloud load:', e); }
+
+    // Load loans (anchor balance + date for amortization)
+    try {
+      var lRes = await supabase.from('settings').select('value').eq('key', 'loans');
+      if(lRes && lRes.data && lRes.data.length > 0){
+        var lArr = JSON.parse(lRes.data[0].value);
+        if(Array.isArray(lArr) && lArr.length > 0) state.loans = lArr;
+      } else {
+        // Cloud empty — push our local defaults up
+        await supabase.from('settings').upsert({key:'loans', value:JSON.stringify(state.loans)});
+      }
+    } catch(e){ console.error('[loans] cloud load:', e); }
+
+    // One-time migration for legacy LOC entries: pre-v4.7 stored credit
+    // limit as anchorBalance (treating it like a normal loan balance). If
+    // an LOC is missing the creditLimit field, treat its old anchorBalance
+    // as the limit and reset balance owed to 0.
+    var locMigrated = false;
+    state.loans.forEach(function(loan){
+      if(loan.id === 'loc' && loan.creditLimit == null){
+        loan.creditLimit = loan.anchorBalance || 125000;
+        loan.anchorBalance = 0;
+        locMigrated = true;
+      }
+    });
+    if(locMigrated && supabase){
+      try { await supabase.from('settings').upsert({key:'loans', value:JSON.stringify(state.loans)}); } catch(e){}
+    }
+
+    // Auto-allocate per-property loan/payment from blanket+creek totals
+    applyLoanAllocation();
 
     // Pull ledger entries from cloud (or migrate local entries up if cloud is empty)
     await loadLedgersFromCloud();
@@ -905,40 +1047,40 @@ function calcFullNet(sc) {
 }
 
 function portfolioStats() {
+  // Re-allocate per-property loan/payment from state.loans before computing.
+  // This keeps everything in sync if appraised values changed.
+  if(state.loans && state.properties) applyLoanAllocation();
+
   var props = state.properties;
   var totalIncome = props.reduce(function(s,p){return s+p.rent;},0);
-  // Property-level payments are allocations; actual loan payments are what matter for net CF
+  // With value-weighted allocation, sum of p.payment exactly equals actual
+  // debt service (blanket payment + creek payment). No more hardcoded numbers.
   var totalPayments = props.reduce(function(s,p){return s+p.payment;},0);
   var totalTaxes = props.reduce(function(s,p){return s+(p.taxes||0);},0);
   var totalIns = props.reduce(function(s,p){return s+(p.ins||0);},0);
   var totalRepair = props.reduce(function(s,p){return s+(p.repair||0);},0);
   var totalWaterTrash = props.reduce(function(s,p){return s+(p.watertrash||0);},0);
   var totalPest = props.reduce(function(s,p){return s+(p.pest||0);},0);
-  // Vacancy: 2.5% of Total Monthly Tenant (rent + water + pest) - matches spreadsheet
+  // Vacancy: 2.5% of Total Monthly Tenant (rent + water + pest)
   var totalMonthlyTenant = totalIncome + totalWaterTrash + totalPest;
   var vacancyCost = totalMonthlyTenant * 0.025;
-  // ACTUAL loan payments (matches spreadsheet Cash Flow section):
-  // - Rentals blanket loan: $7,522.59/mo (NOT sum of property allocations $7,764.84)
-  // - Land loan: $1,854.76/mo
-  // Total actual debt service: $9,377.35/mo
-  var actualRentalPayment = 7522.59;
-  var actualLandPayment = 1854.76;
-  var actualTotalPayment = actualRentalPayment + actualLandPayment;
-  // Net CF matches spreadsheet Cash Flow section:
-  var netCF = totalIncome - actualTotalPayment - totalTaxes - totalIns - totalRepair - vacancyCost;
+  // Net CF uses real debt service (already correct via value-weighted allocation)
+  var netCF = totalIncome - totalPayments - totalTaxes - totalIns - totalRepair - vacancyCost;
   var totalOpEx = totalTaxes + totalIns + totalRepair + vacancyCost;
   var totalEq = props.reduce(function(s,p){return s+(p.appraised-p.loan);},0);
   var totalVal = props.reduce(function(s,p){return s+p.appraised;},0);
   var totalLoan = props.reduce(function(s,p){return s+p.loan;},0);
-  // Compute averages from individual property metrics (matches spreadsheet subtotals)
+  // PORTFOLIO LTV — total debt / total value (not avg of per-property LTVs)
+  var portfolioLtv = totalVal > 0 ? (totalLoan / totalVal) * 100 : 0;
+  // Compute averages from individual property metrics (kept for completeness)
   var avgDscr = props.reduce(function(s,p){return s+calcProp(p).dscr;},0)/props.length;
-  var avgLtv = props.reduce(function(s,p){return s+calcProp(p).ltv;},0)/props.length;
-  var avgRoi = props.reduce(function(s,p){return s+calcProp(p).roi;},0)/props.length;
-  var avgCap = props.reduce(function(s,p){return s+calcProp(p).cap;},0)/props.length;
+  var avgLtv  = props.reduce(function(s,p){return s+calcProp(p).ltv;},0)/props.length;
+  var avgRoi  = props.reduce(function(s,p){return s+calcProp(p).roi;},0)/props.length;
+  var avgCap  = props.reduce(function(s,p){return s+calcProp(p).cap;},0)/props.length;
   return {totalIncome, totalPayments, netCF, totalEq, totalVal, totalLoan,
     totalTaxes, totalIns, totalRepair, totalWaterTrash, totalPest, totalOpEx, vacancyCost,
     avgDscr, avgLtv, avgRoi, avgCap,
-    ltv: avgLtv, occ:100};
+    ltv: portfolioLtv, occ:100};
 }
 
 // ════════════════════════════════════════
@@ -985,10 +1127,11 @@ function renderInvOverview() {
   var bt = document.getElementById('bannerTotal');
   if(bt) bt.textContent = f$(totalIn)+'/mo';
   // bannerTotal removed
-  // Update expense fields — debt uses ACTUAL loan payments (blanket + land)
+  // Update expense fields — debt uses ACTUAL loan payments (sum of state.loans)
   var debtEl = document.getElementById('ov-debt');
   var opexEl = document.getElementById('ov-opex');
-  if(debtEl) debtEl.textContent = f$(9377.35); // $7,522.59 rental blanket + $1,854.76 land
+  var totalLoanPmt = (state.loans||[]).reduce(function(s,l){return s+(l.payment||0);},0);
+  if(debtEl) debtEl.textContent = f$(totalLoanPmt);
   if(opexEl) opexEl.textContent = f$(Math.round(st.totalOpEx||3266));
   
   var kpiData = [
@@ -1025,7 +1168,61 @@ function renderInvOverview() {
     cfHtml += '<div style="font-size:8px;color:#94b4cc;margin-top:5px;text-align:center;white-space:pre-line">'+d.l+'</div>';
     cfHtml += '</div>';
   });
+  renderLoansSummary();
   renderMasterSheet();
+}
+
+function renderLoansSummary(){
+  var el = document.getElementById('ov-loans-summary');
+  if(!el || !state.loans) return;
+  var liveBalances = state.loans.map(calcLoanCurrentBalance);
+  var totalDebt = liveBalances.reduce(function(s,v){return s+v;},0);
+  var totalPmt  = state.loans.reduce(function(s,l){return s+(l.payment||0);},0);
+  var nextDates = state.loans
+    .filter(function(l){return l.payment > 0 && l.firstPaymentDate;})
+    .map(function(l){return nextPaymentDate(l.firstPaymentDate);})
+    .filter(function(d){return d != null;})
+    .sort(function(a,b){return a-b;});
+  var nextStr = nextDates.length ? nextDates[0].toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+
+  var html = '';
+  html += '<div class="card" style="border:1px solid rgba(56,189,248,0.25);padding:13px 14px">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
+  html += '<div style="font-size:11px;font-weight:800;color:#38bdf8;letter-spacing:0.05em">🏦 LOAN SUMMARY</div>';
+  html += '<button onclick="document.querySelector(\'.tab[data-tab=ib]\').click()" style="background:none;border:none;color:#38bdf8;font-size:10px;font-weight:700;cursor:pointer;text-decoration:underline">View details →</button>';
+  html += '</div>';
+  state.loans.forEach(function(loan, i){
+    var bal = liveBalances[i];
+    var paymentsMade = loan.payment > 0 ? paymentsMadeOn(loan.firstPaymentDate) : 0;
+    var paymentsTotal = loan.term ? loan.term*12 : 0;
+    html += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
+    html += '<div><div style="font-size:11px;font-weight:700;color:#eef6ff">'+loan.name+'</div>';
+    if(loan.payment > 0){
+      html += '<div style="font-size:9px;color:#5a7490">Pmt '+paymentsMade+' of '+paymentsTotal+' · '+f$(loan.payment)+'/mo</div>';
+    } else if(loan.creditLimit != null){
+      var avail = (loan.creditLimit||0) - (loan.anchorBalance||0);
+      html += '<div style="font-size:9px;color:#5a7490">Limit '+f$(loan.creditLimit)+' · Available '+f$(Math.max(0,avail))+'</div>';
+    } else {
+      html += '<div style="font-size:9px;color:#5a7490">Revolving · no fixed payment</div>';
+    }
+    html += '</div>';
+    // Show "Owed" for LOC, "Balance" for amortizing loans
+    var balLabel = (loan.payment === 0 && loan.creditLimit != null) ? 'Owed' : '';
+    var balColor = (loan.payment === 0 && bal === 0) ? '#5a7490' : '#00f5a0';
+    html += '<div style="text-align:right">';
+    if(balLabel) html += '<div style="font-size:8px;color:#5a7490;text-transform:uppercase">'+balLabel+'</div>';
+    html += '<div style="font-size:14px;font-weight:800;color:'+balColor+'">'+f$(Math.round(bal))+'</div>';
+    html += '</div>';
+    html += '</div>';
+  });
+  html += '<div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:10px;margin-top:6px;border-top:1px solid rgba(56,189,248,0.2)">';
+  html += '<div><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Total Debt</div>';
+  html += '<div style="font-size:9px;color:#94b4cc;margin-top:1px">Next payment: '+nextStr+'</div></div>';
+  html += '<div style="text-align:right"><div style="font-size:16px;font-weight:800;color:#fb7185">'+f$(Math.round(totalDebt))+'</div>';
+  html += '<div style="font-size:9px;color:#94b4cc">'+f$(totalPmt)+'/mo total</div></div>';
+  html += '</div>';
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 // ════════════════════════════════════════
@@ -1038,14 +1235,16 @@ function startInlineEdit(spanEl){
   var type = spanEl.getAttribute('data-type') || 'text';
   var pid = spanEl.getAttribute('data-pid');
   var field = spanEl.getAttribute('data-field');
+  var loanId = spanEl.getAttribute('data-loan-id');
+  var loanField = spanEl.getAttribute('data-loan-field');
   var origHTML = spanEl.innerHTML;
 
   var input = document.createElement('input');
   input.type = type;
   input.value = raw;
   input.style.cssText = 'width:100%;min-width:60px;background:rgba(0,245,160,0.12);border:1px solid #00f5a0;color:#fff;padding:3px 6px;border-radius:4px;font-family:inherit;font-size:inherit;text-align:right;outline:none;box-sizing:border-box';
-  input.setAttribute('data-pid', pid);
-  input.setAttribute('data-field', field);
+  if(pid){ input.setAttribute('data-pid', pid); input.setAttribute('data-field', field); }
+  if(loanId){ input.setAttribute('data-loan-id', loanId); input.setAttribute('data-loan-field', loanField); }
 
   spanEl.innerHTML = '';
   spanEl.appendChild(input);
@@ -1056,7 +1255,11 @@ function startInlineEdit(spanEl){
     if(done) return;
     done = true;
     if(commit){
-      commitInlineEdit(input);
+      if(input.getAttribute('data-loan-id')){
+        commitLoanEdit(input);
+      } else {
+        commitInlineEdit(input);
+      }
     } else {
       spanEl.innerHTML = origHTML;
     }
@@ -1114,6 +1317,42 @@ async function commitInlineEdit(input){
   } else {
     // No cloud connection at all — refuse the save (per cloud-first model)
     p[field] = oldVal;
+    showToast('⚠ Not connected to cloud — try Sync');
+  }
+  renderAll();
+}
+
+async function commitLoanEdit(input){
+  var loanId = input.getAttribute('data-loan-id');
+  var field = input.getAttribute('data-loan-field');
+  var loan = state.loans.find(function(l){return l.id === loanId;});
+  if(!loan){ renderAll(); return; }
+
+  var val = input.value;
+  // Numeric fields
+  if(['anchorBalance','rate','term','payment'].indexOf(field) >= 0){
+    val = parseFloat(val) || 0;
+  }
+  if(loan[field] === val){ renderAll(); return; }
+
+  var oldVal = loan[field];
+  loan[field] = val;
+  applyLoanAllocation();
+
+  if(supabase){
+    var res = await supabase.from('settings').upsert({key:'loans', value: JSON.stringify(state.loans)});
+    if(res && res.error){
+      // Revert on cloud failure
+      loan[field] = oldVal;
+      applyLoanAllocation();
+      showToast('⚠ Save failed — '+fmtErr(res.error));
+    } else {
+      try { localStorage.setItem('cgt_loans', JSON.stringify(state.loans)); } catch(e){}
+      showToast('✓ Loan updated');
+    }
+  } else {
+    loan[field] = oldVal;
+    applyLoanAllocation();
     showToast('⚠ Not connected to cloud — try Sync');
   }
   renderAll();
@@ -1274,7 +1513,7 @@ function renderMasterSheet() {
     appr:       {v:f$(st.totalVal),                                                       c:'#eef6ff'},
     eq:         {v:f$(st.totalEq),                                                        c:'#a78bfa'},
     dscr:       {v:st.avgDscr.toFixed(2),                                                 c:'#00f5a0'},
-    ltv:        {v:st.avgLtv.toFixed(0)+'%',                                              c:'#00d4aa'},
+    ltv:        {v:st.ltv.toFixed(0)+'%',                                                c:'#00d4aa'},
     roi:        {v:st.avgRoi.toFixed(2)+'%',                                              c:'#fbbf24'},
     cap:        {v:st.avgCap.toFixed(2)+'%',                                              c:'#38bdf8'}
   };
@@ -2290,37 +2529,89 @@ function renderBankContent() {
   var st = portfolioStats();
   var html = '';
 
+  // Helper: editable loan field span
+  function loanEdit(loanId, field, displayed, raw, type){
+    type = type || 'number';
+    var safeRaw = raw == null ? '' : String(raw).replace(/"/g,'&quot;');
+    return '<span class="cell-edit" data-loan-id="'+loanId+
+           '" data-loan-field="'+field+
+           '" data-type="'+type+
+           '" data-raw="'+safeRaw+
+           '" onclick="event.stopPropagation();startInlineEdit(this)" '+
+           'style="display:inline-block;cursor:pointer;border-bottom:1px dashed rgba(0,245,160,0.35);padding:1px 2px;border-radius:3px">'+
+           displayed+'</span>';
+  }
+
   // LOAN DETAILS
   html += '<div class="card" style="border:1px solid rgba(56,189,248,0.25);margin-bottom:12px">';
-  html += '<div style="font-size:13px;font-weight:800;color:#38bdf8;margin-bottom:14px">🏦 Loan Details</div>';
-  
-  var loans = [
-    {name:'Blanket Rental Loan',lender:'Commercial Lender',position:'1st',color:'#00f5a0',balance:1124500,rate:6.40,term:20,payment:7522.59,props:'18 residential properties',notes:'Single blanket loan across all rentals'},
-    {name:'Creek Land Loan',lender:'Commercial Lender',position:'1st',color:'#00f5a0',balance:320000,rate:6.73,term:20,payment:1854.76,props:'Creek land — Jane, MO',notes:'Leased to Creekside Retreats at $2,500/mo'},
-    {name:'Line of Credit (LOC)',lender:'Bank LOC',position:'2nd',color:'#fb7185',balance:125000,rate:0,term:0,payment:0,props:'Cross-collateralized',notes:'2nd position · Used for acquisitions & improvements'}
-  ];
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">';
+  html += '<div style="font-size:13px;font-weight:800;color:#38bdf8">🏦 Loan Details</div>';
+  html += '<div style="font-size:9px;color:#5a7490;font-style:italic">Tap any value to edit</div></div>';
 
-  loans.forEach(function(loan){
+  // Compute live balances for use in totals + display
+  var liveBalances = state.loans.map(calcLoanCurrentBalance);
+  var totalDebt = liveBalances.reduce(function(s,v){return s+v;},0);
+  var totalPaymentsMonthly = state.loans.reduce(function(s,l){return s+(l.payment||0);},0);
+
+  state.loans.forEach(function(loan, idx){
     var posColor = loan.position==='1st'?'#00f5a0':'#fb7185';
+    var currBal = liveBalances[idx];
+    var paymentsMade = loan.payment > 0 ? paymentsMadeOn(loan.firstPaymentDate) : 0;
+    var totalPayments = loan.term ? loan.term * 12 : 0;
+    var paidPct = (totalPayments && paymentsMade>0) ? Math.min(100, (paymentsMade/totalPayments)*100) : 0;
+    var totalReduced = loan.anchorBalance - currBal;
+    var nextDate = loan.payment > 0 ? nextPaymentDate(loan.firstPaymentDate) : null;
+
     html += '<div style="background:rgba(255,255,255,0.03);border-radius:11px;padding:13px 14px;margin-bottom:10px;border-left:4px solid '+loan.color+'">';
     html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:6px;margin-bottom:10px">';
     html += '<div><div style="font-size:13px;font-weight:700;color:#eef6ff">'+loan.name+'</div>';
     html += '<div style="font-size:10px;color:#94b4cc;margin-top:2px">'+loan.props+'</div></div>';
     html += '<span style="font-size:10px;font-weight:700;background:'+posColor+'22;color:'+posColor+';padding:3px 10px;border-radius:20px;border:1px solid '+posColor+'55">'+loan.position+' Position</span>';
     html += '</div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">';
-    [{l:'Balance',v:f$(loan.balance),c:'#fb7185'},
-     {l:'Rate',v:loan.rate?loan.rate.toFixed(2)+'%':'—',c:'#fbbf24'},
-     {l:'Term',v:loan.term?loan.term+' yrs':'—',c:'#94b4cc'},
-     {l:'Mo. Payment',v:loan.payment?f$(loan.payment):'—',c:'#fb7185'},
-     {l:'Annual Interest',v:loan.rate?f$(loan.balance*loan.rate/100):'—',c:'#fbbf24'},
-     {l:'Annual Payment',v:loan.payment?f$(loan.payment*12):'—',c:'#94b4cc'}
-    ].forEach(function(m){
-      html += '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px">';
-      html += '<div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">'+m.l+'</div>';
-      html += '<div style="font-size:13px;font-weight:700;color:'+m.c+'">'+m.v+'</div></div>';
-    });
-    html += '</div>';
+
+    // Live balance summary block (top)
+    if(loan.payment > 0){
+      html += '<div style="background:rgba(0,245,160,0.05);border:1px solid rgba(0,245,160,0.2);border-radius:8px;padding:10px 12px;margin-bottom:10px">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:6px;margin-bottom:6px">';
+      html += '<div><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Current Balance</div>';
+      html += '<div style="font-size:18px;font-weight:800;color:#00f5a0">'+f$(Math.round(currBal))+'</div></div>';
+      html += '<div style="text-align:right"><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Paid Down</div>';
+      html += '<div style="font-size:13px;font-weight:700;color:#fbbf24">'+f$(Math.round(totalReduced))+'</div></div>';
+      html += '</div>';
+      html += '<div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden">';
+      html += '<div style="height:100%;width:'+paidPct.toFixed(2)+'%;background:linear-gradient(90deg,#00f5a0,#00d4aa)"></div></div>';
+      html += '<div style="font-size:9px;color:#8ba8c4;margin-top:6px">Payment '+paymentsMade+' of '+totalPayments+' · '+paidPct.toFixed(1)+'% · First Payment: '+
+              loanEdit(loan.id,'firstPaymentDate',formatLoanDate(loan.firstPaymentDate),loan.firstPaymentDate||'','date')+
+              (nextDate ? ' · Next: '+nextDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '')+'</div>';
+      html += '</div>';
+    }
+
+    // Editable metrics grid — LOC (revolving) gets a different layout
+    var fmtRate = loan.rate ? loan.rate.toFixed(2)+'%' : '—';
+    var fmtTerm = loan.term ? loan.term+' yrs' : '—';
+    var fmtPmt  = loan.payment ? f$(loan.payment) : '—';
+    var fmtAI   = loan.rate ? f$(currBal*loan.rate/100) : '—';
+    var fmtAP   = loan.payment ? f$(loan.payment*12) : '—';
+    if(loan.payment === 0 && loan.creditLimit != null){
+      // LOC / revolving line: show Credit Limit, Balance Owed, Available, Rate
+      var available = (loan.creditLimit||0) - (loan.anchorBalance||0);
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">';
+      html += '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Credit Limit</div><div style="font-size:13px;font-weight:700;color:#94b4cc">'+loanEdit(loan.id,'creditLimit',f$(loan.creditLimit),loan.creditLimit,'number')+'</div></div>';
+      html += '<div style="background:rgba(0,245,160,0.05);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Available to Draw</div><div style="font-size:13px;font-weight:700;color:#00f5a0">'+f$(Math.max(0,available))+'</div></div>';
+      html += '<div style="background:rgba(251,113,133,0.05);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Balance Owed</div><div style="font-size:13px;font-weight:700;color:#fb7185">'+loanEdit(loan.id,'anchorBalance',f$(loan.anchorBalance||0),loan.anchorBalance||0,'number')+'</div></div>';
+      html += '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Rate (when drawn)</div><div style="font-size:13px;font-weight:700;color:#fbbf24">'+loanEdit(loan.id,'rate',fmtRate,loan.rate,'number')+'</div></div>';
+      html += '</div>';
+    } else {
+      // Standard amortizing loan
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">';
+      html += '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Original Balance</div><div style="font-size:13px;font-weight:700;color:#94b4cc">'+loanEdit(loan.id,'anchorBalance',f$(loan.anchorBalance),loan.anchorBalance,'number')+'</div></div>';
+      html += '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Rate</div><div style="font-size:13px;font-weight:700;color:#fbbf24">'+loanEdit(loan.id,'rate',fmtRate,loan.rate,'number')+'</div></div>';
+      html += '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Term</div><div style="font-size:13px;font-weight:700;color:#94b4cc">'+loanEdit(loan.id,'term',fmtTerm,loan.term,'number')+'</div></div>';
+      html += '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Mo. Payment</div><div style="font-size:13px;font-weight:700;color:#fb7185">'+loanEdit(loan.id,'payment',fmtPmt,loan.payment,'number')+'</div></div>';
+      html += '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Annual Interest</div><div style="font-size:13px;font-weight:700;color:#fbbf24">'+fmtAI+'</div></div>';
+      html += '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px"><div style="font-size:9px;color:#5a7490;text-transform:uppercase;letter-spacing:0.07em">Annual Payment</div><div style="font-size:13px;font-weight:700;color:#94b4cc">'+fmtAP+'</div></div>';
+      html += '</div>';
+    }
     html += '<div style="font-size:10px;color:#5a7490">'+loan.notes+'</div>';
     html += '</div>';
   });
@@ -2328,11 +2619,13 @@ function renderBankContent() {
   // Totals
   html += '<div style="background:rgba(56,189,248,0.06);border-radius:10px;padding:12px 14px;border:1px solid rgba(56,189,248,0.2)">';
   html += '<div style="font-size:11px;font-weight:700;color:#38bdf8;margin-bottom:8px">Combined Debt Summary</div>';
+  // Total annual interest based on current (live) balances
+  var totalAnnualInterest = state.loans.reduce(function(s,l,i){return s + (l.rate ? liveBalances[i]*l.rate/100 : 0);},0);
   var debtRows = [
-    ['Total Debt',f$(1124500+320000+125000),'#fb7185'],
-    ['Total Mo. Payments',f$(7522.59+1854.76),'#fb7185'],
-    ['Annual Debt Service',f$((7522.59+1854.76)*12),'#fb7185'],
-    ['Total Annual Interest',f$(1124500*0.064+320000*0.0673),'#fbbf24'],
+    ['Total Debt (current)',f$(Math.round(totalDebt)),'#fb7185'],
+    ['Total Mo. Payments',f$(totalPaymentsMonthly),'#fb7185'],
+    ['Annual Debt Service',f$(totalPaymentsMonthly*12),'#fb7185'],
+    ['Total Annual Interest',f$(Math.round(totalAnnualInterest)),'#fbbf24'],
     ['Portfolio DSCR',(st.totalIncome/(st.totalPayments)).toFixed(2)+'x','#00f5a0'],
     ['Portfolio LTV',st.ltv.toFixed(1)+'%','#00d4aa']
   ];
