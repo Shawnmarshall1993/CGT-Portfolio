@@ -1473,6 +1473,8 @@ function renderMasterSheet() {
       rent:       {v:maybeEditable('rent', f$(p.rent), p.rent),                               c:'#eef6ff', b:true},
       wt:         {v:maybeEditable('wt', f$(p.watertrash||0), p.watertrash||0),               c:'#94b4cc'},
       pest:       {v:maybeEditable('pest', f$(p.pest||0), p.pest||0),                         c:'#94b4cc'},
+      taxes:      {v:maybeEditable('taxes', f$(p.taxes||0), p.taxes||0),                      c:'#94b4cc'},
+      ins:        {v:maybeEditable('ins', f$(p.ins||0), p.ins||0),                            c:'#94b4cc'},
       total:      {v:f$(calc.totalTenant),                                                    c:'#38bdf8', b:true},
       pmt:        {v:maybeEditable('pmt', f$(p.payment), p.payment),                          c:'#fb7185'},
       noi:        {v:f$(calc.noi),                                                            c:calc.noi>0?'#00f5a0':'#fb7185', b:true},
