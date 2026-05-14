@@ -1512,6 +1512,8 @@ function renderMasterSheet() {
     rent:       {v:f$(st.totalIncome),                                                    c:'#eef6ff'},
     wt:         {v:f$(props.reduce(function(s,p){return s+(p.watertrash||0);},0)),        c:'#94b4cc'},
     pest:       {v:f$(props.reduce(function(s,p){return s+(p.pest||0);},0)),              c:'#94b4cc'},
+    taxes:      {v:f$(st.totalTaxes),                                                     c:'#94b4cc'},
+    ins:        {v:f$(st.totalIns),                                                       c:'#94b4cc'},
     total:      {v:f$(props.reduce(function(s,p){return s+calcProp(p).totalTenant;},0)),  c:'#38bdf8'},
     pmt:        {v:f$(st.totalPayments),                                                  c:'#fb7185'},
     noi:        {v:f$(props.reduce(function(s,p){return s+calcProp(p).noi;},0)),          c:'#00f5a0'},
