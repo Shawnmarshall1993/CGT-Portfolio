@@ -1413,9 +1413,10 @@ function renderMasterSheet() {
     tenant:     {field:'contact',    type:'text'},
     phone:      {field:'phone',      type:'text'},
     leaseStart: {field:'leaseStart', type:'date'},
-    leaseEnd:   {field:'leaseEnd',   type:'date'}
+    leaseEnd:   {field:'leaseEnd',   type:'date'},
+    taxes:      {field:'taxes',      type:'number'},
+    ins:        {field:'ins',        type:'number'}
   };
-
   // Render column visibility toggle bar above table
   var toggleHtml = '<div style="padding:8px 10px;background:rgba(0,245,160,0.04);border-bottom:1px solid rgba(0,245,160,0.15);display:flex;gap:4px;flex-wrap:wrap;align-items:center"><span style="font-size:10px;color:#94b4cc;text-transform:uppercase;letter-spacing:0.07em;margin-right:6px">Show/Hide:</span>';
   colDefs.forEach(function(col){
