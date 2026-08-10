@@ -112,6 +112,10 @@ html{background:#050b18}body{background:#050b18;color:#eef6ff;font-family:-apple
 
 /* SAVE BUTTON */
 .save-btn{background:linear-gradient(135deg,var(--emerald),var(--teal));color:#050b18;border:none;border-radius:9px;padding:9px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;margin-top:10px}
+/* Read-only share mode: hide all edit controls and remove the "tap to edit" cues */
+body.share-view #resetBtn,body.share-view #syncBtn,body.share-view .save-btn,body.share-view .edit-hint{display:none!important}
+body.share-view .cell-edit{border-bottom:none!important;cursor:default!important}
+body.share-view .edit-field{pointer-events:none}
 .save-btn.amber{background:linear-gradient(135deg,var(--amber),#fb923c);color:#050b18}
 .save-btn:active{opacity:0.8}
 
@@ -275,7 +279,7 @@ html{background:#050b18}body{background:#050b18;color:#eef6ff;font-family:-apple
     <!-- LEDGER (PIN PROTECTED) -->
     <div class="panel" id="il">
       <div style="font-size:20px;font-weight:800;margin-bottom:4px;color:#eef6ff" style="color:#eef6ff">Income & Expense Ledger</div>
-      <div style="font-size:10px;color:#94b4cc;margin-bottom:14px" style="color:#8ba8c4">CGT Investments LLC · 2025 locked · 2026 editable</div>
+      <div style="font-size:10px;color:#94b4cc;margin-bottom:14px" style="color:#8ba8c4">CGT Investments LLC · 2026</div>
       <div id="inv-ledger-content"></div>
     </div>
 
@@ -362,7 +366,7 @@ html{background:#050b18}body{background:#050b18;color:#eef6ff;font-family:-apple
     <!-- LEDGER (PIN PROTECTED) -->
     <div class="panel" id="rl">
       <div style="font-size:20px;font-weight:800;margin-bottom:4px;color:#eef6ff" style="color:#eef6ff">Income & Expense Ledger</div>
-      <div style="font-size:10px;color:#8ba8c4;margin-bottom:14px" style="color:#8ba8c4">CGT Creekside Retreats LLC · 2025 locked · 2026 editable</div>
+      <div style="font-size:10px;color:#8ba8c4;margin-bottom:14px" style="color:#8ba8c4">CGT Creekside Retreats LLC · 2026</div>
       <div id="ret-ledger-content"></div>
     </div>
 
@@ -431,6 +435,11 @@ var RET_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK
 
 var expandedMaster = null;
 var isEditMode = true;
+// READ-ONLY SHARE MODE: add ?view (or ?readonly) to the URL to hand someone a
+// look-but-don't-touch copy. Every edit path checks SHARE_VIEW and bails out, so
+// nothing a viewer does can write to the live database. Your plain URL (no param)
+// stays fully editable, exactly as before.
+var SHARE_VIEW = /[?&](view|readonly|share)(=|&|$)/i.test(location.search);
 var supabase = null;
 var curBiz = 'inv';
 var curSc = 'mid';
@@ -817,6 +826,7 @@ async function syncData() {
 }
 
 async function resetToDefaults() {
+  if(SHARE_VIEW) return; // read-only share mode
   if(!confirm('This will replace ALL current property data with the correct defaults (rent, deposits, water/trash, pest, etc). Cloud data will also be overwritten. Continue?')) return;
   showToast('Resetting...');
   state.properties = JSON.parse(JSON.stringify(DEFAULT_PROPS));
@@ -1163,6 +1173,7 @@ function renderLoansSummary(){
 // Click any editable cell → becomes an input → blur/Enter saves, Escape cancels
 // ════════════════════════════════════════
 function startInlineEdit(spanEl){
+  if(SHARE_VIEW) return; // read-only share mode: editing disabled
   if(spanEl.querySelector('input')) return; // already editing
   var raw = spanEl.getAttribute('data-raw');
   var type = spanEl.getAttribute('data-type') || 'text';
@@ -1207,6 +1218,7 @@ function startInlineEdit(spanEl){
 }
 
 async function commitInlineEdit(input){
+  if(SHARE_VIEW) return; // read-only share mode
   var pid = parseInt(input.getAttribute('data-pid'));
   var field = input.getAttribute('data-field');
   var p = state.properties.find(function(x){return x.id===pid;});
@@ -1256,6 +1268,7 @@ async function commitInlineEdit(input){
 }
 
 async function commitLoanEdit(input){
+  if(SHARE_VIEW) return; // read-only share mode
   var loanId = input.getAttribute('data-loan-id');
   var field = input.getAttribute('data-loan-field');
   var loan = state.loans.find(function(l){return l.id === loanId;});
@@ -1361,7 +1374,7 @@ function renderMasterSheet() {
     toggleHtml += '<button onclick="toggleMasterCol(\'' + col.key + '\')" style="padding:4px 10px;border-radius:15px;border:1px solid '+bd+';background:'+bg+';color:'+fg+';font-size:10px;cursor:pointer;font-family:inherit">'+col.label+'</button>';
   });
   toggleHtml += '<button onclick="showAllMasterCols()" style="padding:4px 12px;border-radius:15px;border:1px solid rgba(56,189,248,0.4);background:rgba(56,189,248,0.1);color:#38bdf8;font-size:10px;cursor:pointer;font-family:inherit;margin-left:4px">Show All</button>';
-  toggleHtml += '<span style="font-size:10px;color:#5a7490;margin-left:auto;font-style:italic">Tap any value to edit</span>';
+  toggleHtml += '<span class="edit-hint" style="font-size:10px;color:#5a7490;margin-left:auto;font-style:italic">Tap any value to edit</span>';
   toggleHtml += '</div>';
 
   var visibleCols = colDefs.filter(function(c){ return c.key==='addr' || masterHiddenCols.indexOf(c.key)<0; });
@@ -1573,6 +1586,7 @@ function renderProps() {
 }
 
 async function saveProp(id) {
+  if(SHARE_VIEW) return; // read-only share mode
   var p = state.properties.find(function(x){return x.id===id;});
   if(!p) return;
 
@@ -1674,174 +1688,7 @@ function renderAnalytics() {
 }
 
 // ════ LEDGER DATA ════
-var INV_2025 = {
-  income: 105215.99,
-  expenses: 117210.35,
-  otherDeductions: 179331.57, // sum of all other deductions items
-  transactions_exp: [
-    {date:'1/9/25',prop:'724 Park St',cat:'Labor',notes:'Plumbing',amt:200},
-    {date:'1/9/25',prop:'408 2nd St',cat:'Material & Labor',notes:'Roof Leak',amt:650},
-    {date:'2/26/25',prop:'All',cat:'Material & Trash',notes:'Water and Trash',amt:716.26},
-    {date:'3/13/25',prop:'503 4th St',cat:'Labor',notes:'Plumbing',amt:100},
-    {date:'3/13/25',prop:'502 W Highway 76',cat:'Material & Labor',notes:'Plumbing Bud Anderson',amt:100},
-    {date:'3/15/25',prop:'All',cat:'Material & Labor',notes:'Plumbing',amt:1500},
-    {date:'3/25/25',prop:'All',cat:'Water and Trash',notes:'',amt:759.80},
-    {date:'3/31/25',prop:'214 W Beaver St',cat:'Material & Labor',notes:'Flooring, Paint, Trim',amt:2000},
-    {date:'4/2/25',prop:'214 W Beaver St',cat:'Material',notes:'Window Heat and Air Unit',amt:580},
-    {date:'4/2/25',prop:'408 2nd St',cat:'Material',notes:'Metal Roof',amt:300},
-    {date:'4/3/25',prop:'214 W Beaver St',cat:'Material',notes:'Stove',amt:150},
-    {date:'4/3/25',prop:'214 W Beaver St',cat:'Labor',notes:'Cleaning',amt:50},
-    {date:'4/11/25',prop:'408 2nd St',cat:'Labor',notes:'Roof Repair and sheet rock',amt:650},
-    {date:'4/23/25',prop:'All',cat:'Water and Trash',notes:'',amt:687.49},
-    {date:'4/30/25',prop:'212 W Beaver St',cat:'Material',notes:'Roof Patching',amt:239},
-    {date:'4/30/25',prop:'408 2nd St',cat:'Labor',notes:'Fixing walls and roof from leak',amt:500},
-    {date:'5/7/25',prop:'503 4th St',cat:'Material & Labor',notes:'Roof leak, new toilet, plumbing fixtures',amt:465},
-    {date:'5/13/25',prop:'308 Roark St',cat:'Labor',notes:'HVAC Wire, thermostat',amt:350},
-    {date:'5/23/25',prop:'All',cat:'Water and Trash',notes:'',amt:708},
-    {date:'5/27/25',prop:'610 Roark St',cat:'Material',notes:'Dryer, faucet',amt:300},
-    {date:'6/9/25',prop:'212 W Beaver St',cat:'Material',notes:'Door Locks',amt:41.62},
-    {date:'6/18/25',prop:'212 W Beaver St',cat:'Material & Labor',notes:'Roof Repair',amt:150},
-    {date:'6/21/25',prop:'304 1st St',cat:'Material & Labor',notes:'AC Unit',amt:621},
-    {date:'6/24/25',prop:'All',cat:'Water and Trash',notes:'',amt:787.81},
-    {date:'6/30/25',prop:'123 Park Valley Court',cat:'Material',notes:'Remodel Repairs',amt:749.25},
-    {date:'6/30/25',prop:'123 Park Valley Court',cat:'Material',notes:'Remodel Repairs',amt:61.98},
-    {date:'7/1/25',prop:'406 3rd St',cat:'Electric',notes:'Liberty Utilities',amt:291.93},
-    {date:'7/2/25',prop:'212 W Beaver St',cat:'Electric',notes:'Liberty Utilities',amt:46.12},
-    {date:'7/3/25',prop:'406 3rd St',cat:'Material & Labor',notes:'Quarter Round',amt:400},
-    {date:'7/3/25',prop:'406 3rd St',cat:'Material & Labor',notes:'Painting, bathtub, siding repair',amt:400},
-    {date:'7/6/25',prop:'406 3rd St',cat:'Material & Labor',notes:'New Roof',amt:10989.61},
-    {date:'7/14/25',prop:'406 3rd St',cat:'Material & Labor',notes:'Painting stairs, dryer vent, hot water line',amt:350},
-    {date:'7/28/25',prop:'All',cat:'Water and Trash',notes:'',amt:707.12},
-    {date:'8/20/25',prop:'All Rentals',cat:'Material & Labor',notes:'Pest Control',amt:810},
-    {date:'8/20/25',prop:'All',cat:'Water and Trash',notes:'',amt:886.03},
-    {date:'8/24/25',prop:'56 Cynder Ln',cat:'Material',notes:'Remodel',amt:1000},
-    {date:'8/21/25',prop:'56 Cynder Ln',cat:'Material & Labor',notes:'Mini split install',amt:1780},
-    {date:'8/27/25',prop:'308 Roark St',cat:'Material & Labor',notes:'Plumbing issues',amt:500},
-    {date:'8/28/25',prop:'56 Cynder Ln',cat:'Labor',notes:'Remodel',amt:1500},
-    {date:'8/30/25',prop:'56 Cynder Ln',cat:'Labor',notes:'Painting Porch',amt:200},
-    {date:'9/25/25',prop:'13 Cynder on',cat:'Material',notes:'Paint',amt:1223.16},
-    {date:'9/25/25',prop:'503 4th st',cat:'Material',notes:'Shutter',amt:85.39},
-    {date:'9/25/25',prop:'56 Cynder In',cat:'Material',notes:'Refrigerator',amt:150},
-    {date:'9/19/25',prop:'503 4th st',cat:'Material',notes:'Paint',amt:136},
-    {date:'9/27/25',prop:'All',cat:'Water and Trash',notes:'Water bills',amt:723.30},
-    {date:'9/28/25',prop:'13 Cynder Ln',cat:'Equipment',notes:'Paint Equipment',amt:14.17},
-    {date:'9/28/25',prop:'13 Cynder Ln',cat:'Equipment',notes:'Paint Equipment',amt:16.52},
-    {date:'9/5/25',prop:'13 Cynder Ln',cat:'Equipment',notes:'Chainsaw Rental',amt:40},
-    {date:'9/28/25',prop:'13 Cynder Ln',cat:'Material',notes:'Gravel Base driveway',amt:900},
-    {date:'9/5/25',prop:'13 Cynder Ln',cat:'Labor',notes:'Backhoe Labor',amt:350},
-    {date:'9/2/25',prop:'13 Cynder Ln',cat:'Labor',notes:'Skidsteer Labor',amt:350},
-    {date:'9/5/25',prop:'13 Cynder Ln',cat:'Material',notes:'Windows and Doors',amt:2840},
-    {date:'9/18/25',prop:'13 Cynder Ln',cat:'Material',notes:'Deck build and Power Washing',amt:2500},
-    {date:'9/19/25',prop:'13 Cynder Ln',cat:'Material',notes:'Interior Doors',amt:1386},
-    {date:'9/8/25',prop:'13 Cynder Ln',cat:'Labor',notes:'General Contractor Fee',amt:3069},
-    {date:'9/18/25',prop:'13 Cynder Ln',cat:'Material',notes:'Flooring and Appliances',amt:4130.37},
-    {date:'9/29/25',prop:'13 Cynder Ln',cat:'Material & Labor',notes:'Paint and Shutters',amt:1223.16},
-    {date:'10/8/25',prop:'13 Cynder Ln',cat:'Material & Labor',notes:'Hot Water Heater',amt:260},
-    {date:'10/8/25',prop:'13 Cynder Ln',cat:'Labor',notes:'Cabinets',amt:1082.56},
-    {date:'10/8/25',prop:'503 4th St',cat:'Labor',notes:'Flooring',amt:820},
-    {date:'10/5/25',prop:'13 Cynder Ln',cat:'Labor',notes:'Quarter Round',amt:158},
-    {date:'10/8/25',prop:'13 Cynder Ln',cat:'Labor',notes:'Tree and Landscape',amt:650},
-    {date:'10/8/25',prop:'13 Cynder Ln',cat:'Labor',notes:'Electrical',amt:200},
-    {date:'10/8/25',prop:'13 Cynder Ln',cat:'Labor',notes:'Brick work, demo on basement',amt:2000},
-    {date:'10/13/25',prop:'503 4th st',cat:'Material',notes:'Paint and supplies',amt:57.94},
-    {date:'10/10/25',prop:'13 Cynder Ln',cat:'Material',notes:'Additional cabinets, hood vent',amt:933.95},
-    {date:'10/17/25',prop:'Electric',cat:'Material',notes:'Electric',amt:58.32},
-    {date:'10/17/25',prop:'503 4th st',cat:'Material & Labor',notes:'Paint, shower insert, plumbing',amt:1400},
-    {date:'10/18/25',prop:'503 4th st',cat:'Equipment',notes:'Refrigerator',amt:205},
-    {date:'10/18/25',prop:'13 Cynder Ln',cat:'Material & Labor',notes:'HVAC System',amt:9980},
-    {date:'9/10/25',prop:'503 4th st',cat:'Labor',notes:'Installing windows and doors',amt:3340},
-    {date:'8/18/25',prop:'503 4th st',cat:'Labor',notes:'General Contractor Fee',amt:3069},
-    {date:'10/18/25',prop:'503 4th st',cat:'Material',notes:'Cleaning supplies',amt:12.93},
-    {date:'8/15/25',prop:'503 4th st',cat:'Material',notes:'Lumber',amt:2134.23},
-    {date:'8/1/25',prop:'13 Cynder Ln',cat:'Labor',notes:'cabinets, paint, trim',amt:2500},
-    {date:'8/1/25',prop:'All',cat:'Water and Trash',notes:'Water bills',amt:800.50},
-    {date:'10/21/25',prop:'13 Cynder Ln',cat:'Material & Labor',notes:'Granite countertops',amt:2291},
-    {date:'10/21/25',prop:'All',cat:'Material & Labor',notes:'Pest Control',amt:735},
-    {date:'10/24/25',prop:'13 Cynder Ln',cat:'Material & Labor',notes:'Electrical repair, deck repair',amt:200},
-    {date:'10/27/25',prop:'13 Cynder Ln',cat:'Material',notes:'Flooring',amt:600},
-    {date:'10/27/25',prop:'13 Cynder Ln',cat:'Labor',notes:'Flooring',amt:650},
-    {date:'10/28/25',prop:'610 Roark St',cat:'Material & Labor',notes:'Shower head replacement',amt:100},
-    {date:'11/4/25',prop:'724 park st',cat:'Labor',notes:'HVAC issue',amt:50},
-    {date:'11/4/25',prop:'All',cat:'Equipment',notes:'Space Heaters',amt:200},
-    {date:'9/2/25',prop:'56 Cynder Ln',cat:'Material & Labor',notes:'Roof Replacement',amt:2065},
-    {date:'9/2/25',prop:'724 park st',cat:'Labor',notes:'Roof Replacement',amt:1500},
-    {date:'11/12/25',prop:'13 Cynder Ln',cat:'Material & Labor',notes:'Gutters',amt:1080},
-    {date:'11/12/25',prop:'13 Cynder Ln',cat:'Material & Labor',notes:'Electrical',amt:4500},
-    {date:'11/12/25',prop:'13 Cynder Ln',cat:'Material & Labor',notes:'Interior Doors',amt:1386},
-    {date:'11/12/25',prop:'13 Cynder Ln',cat:'Material',notes:'GC 2/2 draw',amt:3069},
-    {date:'11/12/25',prop:'13 Cynder Ln',cat:'Labor',notes:'Paint, drywall, cabinet stain, doors install',amt:2737},
-    {date:'11/20/25',prop:'All',cat:'Water and Trash',notes:'Water and trash',amt:736.76},
-    {date:'11/23/25',prop:'13 Cynder Ln',cat:'Material',notes:'Door knobs, cleaning supplies',amt:220.66},
-    {date:'11/25/25',prop:'13 Cynder Ln',cat:'Material',notes:'Gravel',amt:228.76},
-    {date:'12/1/25',prop:'610 Roark st',cat:'Material & Labor',notes:'Bathroom plumbing',amt:250},
-    {date:'12/1/25',prop:'13 Cynder Ln',cat:'Labor',notes:'Trim',amt:1420.28},
-    {date:'12/3/25',prop:'13 Cynder Ln',cat:'Labor',notes:'Dump removal',amt:450},
-    {date:'12/7/25',prop:'13 Cynder Ln',cat:'Labor',notes:'Cleaning',amt:60},
-    {date:'12/13/25',prop:'13 Cynder Ln',cat:'Equipment',notes:'Paint sprayer',amt:590.93},
-    {date:'12/22/25',prop:'All',cat:'Water and Trash',notes:'Water and Trash',amt:732.07},
-    {date:'12/23/25',prop:'48 Cynder on',cat:'Material',notes:'Primer',amt:208.21},
-    {date:'12/26/25',prop:'48 Cynder In',cat:'Equipment',notes:'Mini Splits',amt:3975},
-    {date:'12/28/25',prop:'48 Cynder In',cat:'Material',notes:'Paint supplies',amt:20.08},
-    {date:'12/28/25',prop:'48 Cynder In',cat:'Material',notes:'Paint supplies',amt:15.16},
-    {date:'12/28/25',prop:'48 Cynder on',cat:'Material',notes:'Plastic wrap',amt:17.31},
-    {date:'12/31/25',prop:'48 Cynder In',cat:'Material & Labor',notes:'Electrical Repairs',amt:1500},
-    {date:'12/31/25',prop:'48 Cynder In',cat:'Labor',notes:'Refrigerator repair',amt:85}
-  ],
-  otherDed: [
-    {desc:'Appraisal - Shaver property',amt:350},
-    {desc:'Closing Cost - Line of Credit',amt:3381.25},
-    {desc:'Reamortization',amt:450},
-    {desc:'Credit Diva - Credit recovery',amt:1811.40},
-    {desc:'Truck - Tires',amt:2085.67},
-    {desc:'Truck - Wheels',amt:1800},
-    {desc:'Truck - Lift Install',amt:750},
-    {desc:'Truck - Bed cover',amt:467.34},
-    {desc:'Truck - Fender repair/grill',amt:1775},
-    {desc:'Truck - Grill lights',amt:832.65},
-    {desc:'Truck - Hood moldings',amt:265.15},
-    {desc:'Truck - Lift kit material',amt:1412.65},
-    {desc:'Yearly Internet Service',amt:1302.60},
-    {desc:'Yearly Phone Bill',amt:1318.45},
-    {desc:'Yearly Car Washes',amt:772.79},
-    {desc:'Yearly Home Insurance',amt:9627.50},
-    {desc:'Yearly Mortgage Interest',amt:54662.30},
-    {desc:'Yearly Auto Insurance',amt:3853.90},
-    {desc:'Yearly Toll Bills',amt:362.99},
-    {desc:'Vehicle Registration',amt:1629.35},
-    {desc:'Cynder Lane Survey',amt:3200},
-    {desc:'Closing Costs - 13 Cynder',amt:1936.90},
-    {desc:'Closing Costs - 48 & 56 Cynder',amt:7031.08},
-    {desc:'Closing Costs - Land',amt:5013.86},
-    {desc:'Auto Interest - 4 Runner',amt:1546.44},
-    {desc:'Auto Interest - Camry',amt:1523.17},
-    {desc:'Auto Interest - Tundra',amt:1124.15},
-    {desc:'Tundra price (over 6k lbs)',amt:70618.90},
-    {desc:'Wire Transfers',amt:90},
-    {desc:'Depreciation',amt:0}
-  ],
-  // 2025 monthly income by property (from spreadsheet current rent * 12)
-  income_by_prop: [
-    {prop:'503 4th St.',monthly:900,annual:10800},
-    {prop:'406 3rd St.',monthly:700,annual:8400},
-    {prop:'408 2nd St.',monthly:900,annual:10800},
-    {prop:'304 1st St.',monthly:700,annual:8400},
-    {prop:'212 W Beaver St.',monthly:700,annual:8400},
-    {prop:'214 W Beaver St.',monthly:700,annual:8400},
-    {prop:'724 Park St.',monthly:800,annual:9600},
-    {prop:'610 Roark St.',monthly:800,annual:9600},
-    {prop:'308 Roark St.',monthly:750,annual:9000},
-    {prop:'502 W. Hwy 76',monthly:565,annual:6780},
-    {prop:'48 Cynder Lane',monthly:1000,annual:12000},
-    {prop:'56 Cynder Lane',monthly:750,annual:9000},
-    {prop:'13 Cynder Lane',monthly:1130,annual:13560},
-    {prop:'310 N. Jefferson',monthly:700,annual:8400},
-    {prop:'410 East Beaver',monthly:700,annual:8400},
-    {prop:'410 High St.',monthly:700,annual:8400},
-    {prop:'509 4th St.',monthly:550,annual:6600},
-    {prop:'307 Wallian Ct.',monthly:700,annual:8400},
-    {prop:'Creek Land (Lease)',monthly:2500,annual:30000}
-  ]
-};
+var INV_2025 = {income:0,expenses:0,otherDeductions:0,transactions_exp:[],income_by_prop:[],otherDed:[]}; // 2025 data removed
 
 var INV_2026_EXP = [
   {date:'1/21/26',prop:'All',cat:'Water and Trash',notes:'',amt:743.45},
@@ -1882,42 +1729,16 @@ var INV_2026_INC = [
   {date:'1/1/26',prop:'307 Wallian Ct.',notes:'Rent',amt:700},
   {date:'1/1/26',prop:'Creek Land',notes:'Land Lease',amt:2500}
 ];
-// Note: above represents one month - multiply by 4 for Jan-Apr YTD
+// Note: above represents ONE month's rent roll. renderInvLedger() multiplies it by
+// INV_2026_MONTHS (months elapsed in the current year) to get YTD — auto-advances monthly.
 
 var INV_2026_OTHER = [
   // Add 2026 other deductions here as they come in (editable via app)
 ];
 
-var RET_2025_EXP = [
-  {date:'10/4/25',prop:'Air BNB #1',cat:'Labor',notes:'Moving and leveling Air BNB',amt:1500},
-  {date:'10/4/25',prop:'Air BNB #2',cat:'Labor',notes:'Moving and leveling Air BNB',amt:1500},
-  {date:'10/19/25',prop:'Both',cat:'Equipment',notes:'Appliances',amt:1646.25},
-  {date:'10/9',prop:'Both',cat:'Checks',notes:'Checks',amt:8},
-  {date:'7/2/25',prop:'Air BNB #1',cat:'Material',notes:'Electrical',amt:804},
-  {date:'7/6/25',prop:'Air BNB #1',cat:'Material',notes:'Electrical',amt:400},
-  {date:'5/19/25',prop:'Air BNB #1',cat:'Material',notes:'Screws and Nails',amt:113.35},
-  {date:'5/21/25',prop:'Air BNB #2',cat:'Material',notes:'Lumber',amt:1302.59},
-  {date:'11/4/25',prop:'Air BNB #1',cat:'Material & Labor',notes:'Water meter',amt:5000},
-  {date:'12/22/25',prop:'Land',cat:'Utilities',notes:'Water bill',amt:84.60}
-];
+var RET_2025_EXP = []; // 2025 data removed
 
-var RET_2025_OTHER = [
-  {desc:'LLC Creation (Peacock Tax)',amt:551},
-  {desc:'Tiny Home Cabins - Down Payments',amt:10000},
-  {desc:'Tiny Home Monthly Payments (x9)',amt:9000},
-  {desc:'Drill bits',amt:43.78},
-  {desc:'Battery pack, charsaw, sawzaw',amt:310.82},
-  {desc:'Lumber',amt:485.08},
-  {desc:'Nails',amt:54.45},
-  {desc:'Circular Saw and battery pack',amt:335.43},
-  {desc:'Trailer',amt:1600},
-  {desc:'Lawn Mower Repair',amt:602.92},
-  {desc:'Weed Killer',amt:74.70},
-  {desc:'Landscaping',amt:200},
-  {desc:'Work gloves',amt:40},
-  {desc:'Bursh Cutter',amt:482.29},
-  {desc:'Tiny Home Monthly Payment',amt:1000}
-];
+var RET_2025_OTHER = []; // 2025 data removed
 
 var RET_2026_EXP = [
   {date:'1/12/25',prop:'',cat:'',notes:'Peacock Tax Service - 2025 Tax Filing',amt:1385},
@@ -1982,11 +1803,42 @@ function makeTable(rows, cols) {
 function renderInvLedger() {
   var c = document.getElementById('inv-ledger-content');
   if(!c) return;
-  var totalOtherDed = INV_2025.otherDed.reduce(function(s,i){return s+i.amt;},0);
+  // Months of 2026 rental income realized so far. Rent is due on the 1st, so a
+  // month counts as soon as it begins. This auto-advances: Jan through the current
+  // month during 2026, a full 12 once 2026 is complete, 0 before 2026 starts.
+  var _now = new Date();
+  var INV_2026_MONTHS = _now.getFullYear() > 2026 ? 12
+                      : _now.getFullYear() < 2026 ? 0
+                      : _now.getMonth() + 1;
+  var _MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var INV_2026_RANGE = INV_2026_MONTHS > 0 ? 'Jan–' + _MONTH_NAMES[INV_2026_MONTHS - 1] : '—';
+  var INV_2026_MONTHS_LBL = INV_2026_MONTHS + (INV_2026_MONTHS === 1 ? ' month' : ' months');
   var inv2026ExpTotal = INV_2026_EXP.reduce(function(s,i){return s+i.amt;},0);
-  var inv2026IncTotal = INV_2026_INC.reduce(function(s,i){return s+i.amt;},0) * 4; // 4 months
+
+  // ── 2026 recurring rental income, derived LIVE from the property table ──
+  // Each property contributes its current monthly rent; the land asset contributes
+  // its monthly lease (stored in `projected`). Edit a rent in the Properties/Bank
+  // view and it flows straight through to the income figures below. One row per
+  // property that actually earns something (income > 0).
+  var invRentRoll = state.properties.map(function(p){
+    var isLand = (p.type === 'land');
+    return { prop: p.addr, notes: isLand ? 'Land Lease' : 'Rent', amt: (isLand ? (p.projected||0) : (p.rent||0)) };
+  }).filter(function(r){ return r.amt > 0; });
+  var invRentMonthly = invRentRoll.reduce(function(s,r){ return s + r.amt; }, 0);
+
+  // Any manually-added income that ISN'T recurring rent (e.g. a one-off deposit or
+  // late fee). The old baked-in rent roll used notes 'Rent'/'Land Lease'; those are
+  // now superseded by the live roll above, so we exclude them here to avoid
+  // double-counting whatever is still stored in that list.
+  var invExtraInc = INV_2026_INC.filter(function(t){
+    var n = (t.notes||'').toLowerCase();
+    return n !== 'rent' && n !== 'land lease';
+  });
+  var invExtraTotal = invExtraInc.reduce(function(s,t){ return s + (t.amt||0); }, 0);
+
+  // Summary YTD income = recurring rent × months elapsed + any one-off extras.
+  var inv2026IncTotal = invRentMonthly * INV_2026_MONTHS + invExtraTotal;
   var inv2026OtherTotal = INV_2026_OTHER.reduce(function(s,i){return s+i.amt;},0);
-  var inv2025IncTotal = INV_2025.income;
 
   var html = '';
 
@@ -2007,20 +1859,10 @@ function renderInvLedger() {
     return txs.filter(function(t){ return (t.prop||'').toLowerCase().indexOf(invLedgerFilter.toLowerCase().split(' ')[0].toLowerCase())>=0; });
   }
 
-  // 2025 Annual Summary — always visible
-  html += '<div class="card" style="border:1px solid rgba(255,255,255,0.12);margin-bottom:10px">';
-  html += '<div style="font-size:13px;font-weight:800;color:#eef6ff;margin-bottom:10px">📊 2025 Annual Summary <span style="font-size:10px;color:#fb7185;background:rgba(251,113,133,0.08);padding:2px 8px;border-radius:20px;margin-left:4px">Locked</span></div>';
-  [{l:'Total Rental Income',v:f$(inv2025IncTotal),c:'#00f5a0'},
-   {l:'Operating Expenses',v:'('+f$(INV_2025.expenses)+')',c:'#fb7185'},
-   {l:'Other Deductions',v:'('+f$(totalOtherDed)+')',c:'#fb7185'},
-   {l:'Net (before tax deductions)',v:f$(inv2025IncTotal-INV_2025.expenses),c:'#38bdf8'}
-  ].forEach(function(r){ html += '<div class="sr"><span class="sl" style="color:#8ba8c4">'+r.l+'</span><span class="sv" style="color:'+r.c+'">'+r.v+'</span></div>'; });
-  html += '</div>';
-
   // 2026 Annual Summary — always visible
   html += '<div class="card" style="border:1px solid rgba(0,245,160,0.2);margin-bottom:10px">';
-  html += '<div style="font-size:13px;font-weight:800;color:#eef6ff;margin-bottom:10px">📊 2026 Summary (YTD Jan–Apr) <span style="font-size:10px;color:#00f5a0;background:rgba(0,245,160,0.08);padding:2px 8px;border-radius:20px;margin-left:4px">Live</span></div>';
-  [{l:'Rental Income (4 months)',v:f$(inv2026IncTotal),c:'#00f5a0'},
+  html += '<div style="font-size:13px;font-weight:800;color:#eef6ff;margin-bottom:10px">📊 2026 Summary (YTD '+INV_2026_RANGE+') <span style="font-size:10px;color:#00f5a0;background:rgba(0,245,160,0.08);padding:2px 8px;border-radius:20px;margin-left:4px">Live</span></div>';
+  [{l:'Rental Income ('+INV_2026_MONTHS_LBL+')',v:f$(inv2026IncTotal),c:'#00f5a0'},
    {l:'Operating Expenses',v:'('+f$(inv2026ExpTotal)+')',c:'#fb7185'},
    {l:'Other Deductions',v:'('+f$(inv2026OtherTotal)+')',c:'#fb7185'},
    {l:'Net YTD',v:f$(inv2026IncTotal-inv2026ExpTotal),c:'#38bdf8'}
@@ -2028,57 +1870,42 @@ function renderInvLedger() {
   html += '</div>';
 
   // ── DROPDOWNS ──
-  var d1tx = filterTx(INV_2025.transactions_exp);
   var d2tx = filterTx(INV_2026_EXP);
-  var d3tx = invLedgerFilter==='All' ? INV_2025.income_by_prop : INV_2025.income_by_prop.filter(function(t){return t.prop.toLowerCase().indexOf(invLedgerFilter.toLowerCase().split(' ')[0].toLowerCase())>=0;});
-  var d4tx = invLedgerFilter==='All' ? INV_2025.otherDed : INV_2025.otherDed;
   var d5tx = invLedgerFilter==='All' ? INV_2026_INC : INV_2026_INC.filter(function(t){return t.prop.toLowerCase().indexOf(invLedgerFilter.toLowerCase().split(' ')[0].toLowerCase())>=0;});
 
-  // 2025 Income
-  var d3total = d3tx.reduce(function(s,t){return s+t.annual;},0);
-  html += makeDropdownBtn('2025 Income by Property', f$(d3total), 'inv-d3', '#00f5a0', invDropdowns, false);
-  html += '<div id="inv-d3" style="display:'+(invDropdowns['inv-d3']?'block':'none')+';margin-bottom:10px">';
-  html += makeTable(d3tx.map(function(t){return[t.prop,'<span style="color:#8ba8c4">'+f$(t.monthly)+'/mo</span>','<span style="color:#00f5a0">'+f$(t.annual)+'/yr</span>'];}),
-    [{label:'Property'},{label:'Monthly',right:true},{label:'Annual',right:true}]);
-  html += '</div>';
-
-  // 2025 Expenses
-  var d1total = d1tx.reduce(function(s,t){return s+t.amt;},0);
-  html += makeDropdownBtn('2025 Expenses', f$(d1total), 'inv-d1', '#fb7185', invDropdowns, false);
-  html += '<div id="inv-d1" style="display:'+(invDropdowns['inv-d1']?'block':'none')+';margin-bottom:10px">';
-  html += makeTable(d1tx.map(function(t){return[t.date,t.prop,t.notes,'<span style="color:#fb7185">'+f$(t.amt)+'</span>'];}),
-    [{label:'Date'},{label:'Property'},{label:'Notes'},{label:'Amount',right:true}]);
-  html += '</div>';
-
-  // 2025 Other Deductions
-  html += makeDropdownBtn('2025 Other Deductions', f$(totalOtherDed), 'inv-d4', '#fb7185', invDropdowns, false);
-  html += '<div id="inv-d4" style="display:'+(invDropdowns['inv-d4']?'block':'none')+';margin-bottom:10px">';
-  html += makeTable(d4tx.map(function(t){return[t.desc,'<span style="color:#fb7185">'+f$(t.amt)+'</span>'];}),
-    [{label:'Description'},{label:'Amount',right:true}]);
-  html += '</div>';
-
-  // 2026 Income
-  var d5total = d5tx.reduce(function(s,t){return s+t.amt;},0)*4;
+  // 2026 Income — recurring rent (live from the property table) + any one-off extras
+  var rollFiltered = filterTx(invRentRoll);
+  var extraFiltered = filterTx(invExtraInc);
+  var d5total = rollFiltered.reduce(function(s,r){return s+r.amt;},0)*INV_2026_MONTHS
+              + extraFiltered.reduce(function(s,t){return s+(t.amt||0);},0);
   html += makeDropdownBtn('2026 Income (YTD)', f$(d5total), 'inv-d5', '#00f5a0', invDropdowns, true);
   html += '<div id="inv-d5" style="display:'+(invDropdowns['inv-d5']?'block':'none')+';margin-bottom:10px">';
-  html += makeTable(d5tx.map(function(t){
-    var row = [t.prop,t.notes,'<span style="color:#8ba8c4">'+f$(t.amt)+'/mo</span>','<span style="color:#00f5a0">'+f$(t.amt*4)+' YTD</span>'];
-    if(isEditMode){
-      var origIdx = INV_2026_INC.indexOf(t);
-      row.push('<button onclick="delLedger(\'inv_inc\','+origIdx+')" style="background:rgba(251,113,133,0.15);border:1px solid rgba(251,113,133,0.35);color:#fb7185;padding:3px 8px;border-radius:6px;font-size:10px;cursor:pointer;font-family:inherit">✕</button>');
-    }
-    return row;
-  }), isEditMode
-    ? [{label:'Property'},{label:'Type'},{label:'Monthly',right:true},{label:'YTD (×4)',right:true},{label:'',right:true}]
-    : [{label:'Property'},{label:'Type'},{label:'Monthly',right:true},{label:'YTD (×4)',right:true}]);
+  html += '<div style="font-size:9px;color:#8ba8c4;margin-bottom:5px">Recurring rent — pulled live from the property table. Edit a rent there and it updates here automatically.</div>';
+  html += makeTable(rollFiltered.map(function(r){
+    return [r.prop,r.notes,'<span style="color:#8ba8c4">'+f$(r.amt)+'/mo</span>','<span style="color:#00f5a0">'+f$(r.amt*INV_2026_MONTHS)+' YTD</span>'];
+  }), [{label:'Property'},{label:'Type'},{label:'Monthly',right:true},{label:'YTD (×'+INV_2026_MONTHS+')',right:true}]);
+  if(extraFiltered.length){
+    html += '<div style="font-size:9px;color:#8ba8c4;margin:8px 0 5px">One-off / other income</div>';
+    html += makeTable(extraFiltered.map(function(t){
+      var row = [t.prop||'—',t.notes||'—','<span style="color:#8ba8c4">'+(t.date||'')+'</span>','<span style="color:#00f5a0">'+f$(t.amt||0)+'</span>'];
+      if(isEditMode){
+        var origIdx = INV_2026_INC.indexOf(t);
+        row.push('<button onclick="delLedger(\'inv_inc\','+origIdx+')" style="background:rgba(251,113,133,0.15);border:1px solid rgba(251,113,133,0.35);color:#fb7185;padding:3px 8px;border-radius:6px;font-size:10px;cursor:pointer;font-family:inherit">✕</button>');
+      }
+      return row;
+    }), isEditMode
+      ? [{label:'Property'},{label:'Notes'},{label:'Date',right:true},{label:'Amount',right:true},{label:'',right:true}]
+      : [{label:'Property'},{label:'Notes'},{label:'Date',right:true},{label:'Amount',right:true}]);
+  }
   if(isEditMode){
     html += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">';
-    html += '<div style="font-size:11px;font-weight:600;color:#00f5a0;margin-bottom:8px">+ Add 2026 Income</div>';
+    html += '<div style="font-size:11px;font-weight:600;color:#00f5a0;margin-bottom:6px">+ Add One-Off 2026 Income</div>';
+    html += '<div style="font-size:9px;color:#8ba8c4;margin-bottom:8px">For income that isn\'t recurring rent (deposit, late fee, etc.). Recurring rent comes from the property table automatically — no need to add it here.</div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">';
     html += '<div><div class="edit-label" style="color:#8ba8c4">Date</div><input class="edit-field" id="inv26-inc-date" placeholder="5/1/26"></div>';
-    html += '<div><div class="edit-label" style="color:#8ba8c4">Amount $</div><input class="edit-field" id="inv26-inc-amt" type="number" placeholder="900"></div>';
+    html += '<div><div class="edit-label" style="color:#8ba8c4">Amount $</div><input class="edit-field" id="inv26-inc-amt" type="number" placeholder="250"></div>';
     html += '<div><div class="edit-label" style="color:#8ba8c4">Property</div><input class="edit-field" id="inv26-inc-prop" placeholder="503 4th St."></div>';
-    html += '<div><div class="edit-label" style="color:#8ba8c4">Notes</div><input class="edit-field" id="inv26-inc-notes" placeholder="Rent"></div>';
+    html += '<div><div class="edit-label" style="color:#8ba8c4">Notes</div><input class="edit-field" id="inv26-inc-notes" placeholder="Deposit, late fee, etc."></div>';
     html += '</div><button class="save-btn" onclick="addInv2026Inc()">Add Income Entry</button></div>';
   }
   html += '</div>';
@@ -2139,7 +1966,7 @@ function renderInvLedger() {
   html += '</div>';
 
   c.innerHTML = html;
-  ['inv-d1','inv-d2','inv-d3','inv-d4','inv-d5','inv-d6'].forEach(function(id){
+  ['inv-d2','inv-d5','inv-d6'].forEach(function(id){
     var btn = c.querySelector('[onclick*="\''+id+'\'"]');
     if(btn) btn.onclick = function(){ toggleDropdown(id, invDropdowns); renderInvLedger(); };
   });
@@ -2148,22 +1975,11 @@ function renderInvLedger() {
 function renderRetLedger() {
   var c = document.getElementById('ret-ledger-content');
   if(!c) return;
-  var ret25ExpTotal = RET_2025_EXP.reduce(function(s,i){return s+i.amt;},0);
-  var ret25OtherTotal = RET_2025_OTHER.reduce(function(s,i){return s+i.amt;},0);
   var ret26ExpTotal = RET_2026_EXP.reduce(function(s,i){return s+i.amt;},0);
   var ret26IncTotal = RET_2026_INC.reduce(function(s,i){return s+i.amt;},0);
   var ret26OtherTotal = RET_2026_OTHER.reduce(function(s,i){return s+i.amt;},0);
 
   var html = '';
-
-  // 2025 Summary — always visible
-  html += '<div class="card" style="border:1px solid rgba(255,255,255,0.15);margin-bottom:10px">';
-  html += '<div style="font-size:13px;font-weight:800;color:#eef6ff;margin-bottom:10px">📊 2025 Annual Summary <span style="font-size:10px;color:#fb7185;background:rgba(251,113,133,0.08);padding:2px 8px;border-radius:20px;margin-left:4px">Locked</span></div>';
-  [{l:'Operating Expenses',v:'('+f$(ret25ExpTotal)+')',c:'#fb7185'},
-   {l:'Other Deductions',v:'('+f$(ret25OtherTotal)+')',c:'#fb7185'},
-   {l:'Total 2025 Costs',v:'('+f$(ret25ExpTotal+ret25OtherTotal)+')',c:'#fb7185'}
-  ].forEach(function(r){ html += '<div class="sr"><span class="sl" style="color:#8ba8c4">'+r.l+'</span><span class="sv" style="color:'+r.c+'">'+r.v+'</span></div>'; });
-  html += '</div>';
 
   // 2026 Summary — always visible
   html += '<div class="card" style="border:1px solid rgba(251,191,36,0.2);margin-bottom:10px">';
@@ -2176,20 +1992,6 @@ function renderRetLedger() {
   html += '</div>';
 
   // Dropdowns
-  // 2025 Expenses
-  html += makeDropdownBtn('2025 Expense Transactions', f$(ret25ExpTotal), 'ret-d1', '#fb7185', retDropdowns, false);
-  html += '<div id="ret-d1" style="display:'+(retDropdowns['ret-d1']?'block':'none')+';margin-bottom:10px">';
-  html += makeTable(RET_2025_EXP.map(function(t){return[t.date,t.prop,t.notes,'<span style="color:#fb7185">'+f$(t.amt)+'</span>'];}),
-    [{label:'Date'},{label:'Property'},{label:'Notes'},{label:'Amount',right:true}]);
-  html += '</div>';
-
-  // 2025 Other Deductions
-  html += makeDropdownBtn('2025 Other Deductions', f$(ret25OtherTotal), 'ret-d2', '#fb7185', retDropdowns, false);
-  html += '<div id="ret-d2" style="display:'+(retDropdowns['ret-d2']?'block':'none')+';margin-bottom:10px">';
-  html += makeTable(RET_2025_OTHER.map(function(t){return[t.desc,'<span style="color:#fb7185">'+f$(t.amt)+'</span>'];}),
-    [{label:'Description'},{label:'Amount',right:true}]);
-  html += '</div>';
-
   // 2026 Income
   html += makeDropdownBtn('2026 Income (YTD)', f$(ret26IncTotal), 'ret-d4', '#00f5a0', retDropdowns, true);
   html += '<div id="ret-d4" style="display:'+(retDropdowns['ret-d4']?'block':'none')+';margin-bottom:10px">';
@@ -2270,7 +2072,7 @@ function renderRetLedger() {
   html += '</div>';
 
   c.innerHTML = html;
-  ['ret-d1','ret-d2','ret-d3','ret-d4','ret-d5'].forEach(function(id){
+  ['ret-d3','ret-d4','ret-d5'].forEach(function(id){
     var btn = c.querySelector('[onclick*="\''+id+'\'"]');
     if(btn) btn.onclick = function(){ toggleDropdown(id, retDropdowns); renderRetLedger(); };
   });
@@ -2452,6 +2254,7 @@ function mergeLedgerArrays(a, b){
 }
 
 function delLedger(which, idx){
+  if(SHARE_VIEW){ showToast('View-only'); return; }
   var m = LEDGER_MAP[which];
   if(!m){ showToast('Invalid ledger'); return; }
   var arr = m.arr();
@@ -2486,7 +2289,7 @@ function renderBankContent() {
   html += '<div class="card" style="border:1px solid rgba(56,189,248,0.25);margin-bottom:12px">';
   html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">';
   html += '<div style="font-size:13px;font-weight:800;color:#38bdf8">🏦 Loan Details</div>';
-  html += '<div style="font-size:9px;color:#5a7490;font-style:italic">Tap any value to edit</div></div>';
+  html += '<div class="edit-hint" style="font-size:9px;color:#5a7490;font-style:italic">Tap any value to edit</div></div>';
 
   // Compute live balances for use in totals + display
   var liveBalances = state.loans.map(calcLoanCurrentBalance);
@@ -2926,6 +2729,7 @@ async function saveRates() {
 // ADD PROPERTY
 // ════════════════════════════════════════
 function openAddProp() {
+  if(SHARE_VIEW) return; // read-only share mode
   document.getElementById('addModal').classList.add('on');
 }
 function closeModal() {
@@ -2933,6 +2737,7 @@ function closeModal() {
 }
 
 async function addProperty() {
+  if(SHARE_VIEW) return; // read-only share mode
   var get = function(id){ return document.getElementById(id).value.trim(); };
   var newProp = {
     id: Date.now(),
@@ -3101,14 +2906,15 @@ document.addEventListener('DOMContentLoaded', function(){
 
   // Load saved ledger entries from localStorage (overrides defaults if present)
   loadLedgers();
-  isEditMode = true;
+  isEditMode = !SHARE_VIEW;
+  if(SHARE_VIEW){ document.body.classList.add('share-view'); }
   initSupabase();
 });
 
 // Lock removed — always in edit mode. These exist only as no-ops so any
 // stale references in the codebase don't crash the app.
-function setViewMode(){ isEditMode = true; renderAll(); }
-function setEditMode(){ isEditMode = true; renderAll(); }
+function setViewMode(){ isEditMode = !SHARE_VIEW; renderAll(); }
+function setEditMode(){ isEditMode = !SHARE_VIEW; renderAll(); }
 function toggleEditMode(){ /* no-op: lock removed */ }
 function checkPin(){ /* no-op: PIN removed */ }
 function closePinModal(){ /* no-op: PIN modal removed */ }
